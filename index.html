@@ -1238,41 +1238,23 @@
     function generateYamlForPreset(key) {
         const cfg = presets[key];
         if (!cfg) return '';
-        let yaml = '[待优化的提示词 开始]# 你的代码风格 — 预设：' + (presetDisplayNames[key] || key) + '
-
-';
-        yaml += '量表统一：0-5 离散档。
-
-你的代码风格应满足如下设定（按分组展示）：
-
-';
+        let yaml = '[待优化的提示词 开始]# 你的代码风格 — 预设：' + (presetDisplayNames[key] || key) + '\n\n';
+        yaml += '量表统一：0-5 离散档。\n\n你的代码风格应满足如下设定（按分组展示）：\n\n';
         categories.forEach(cat => {
-            yaml += '- 分组: "' + cat.name + '"
-';
-            yaml += '  id: "' + cat.id + '"
-';
-            yaml += '  维度:
-';
+            yaml += '- 分组: "' + cat.name + '"\n';
+            yaml += '  id: "' + cat.id + '"\n';
+            yaml += '  维度:\n';
             cat.dimensions.forEach(id => {
                 const dim = getDim(id);
                 if (!dim) return;
                 const score = cfg[id] !== undefined ? cfg[id] : 3;
                 const description = dim.descriptions[score];
-                yaml += '    - 名称: "' + dim.name + '"
-';
-                yaml += '      分数: ' + score + '
-';
-                yaml += '      值说明: "' + description + '"
-';
+                yaml += '    - 名称: "' + dim.name + '"\n';
+                yaml += '      分数: ' + score + '\n';
+                yaml += '      值说明: "' + description + '"\n';
             });
         });
-        yaml += '
-
-[待优化的提示词 结束]
-
-重写为一段连续书写的提示词(不是结构化写作), 前缀为"你的Code个性是".
-
-';
+        yaml += '\n\n[待优化的提示词 结束]\n\n重写为一段连续书写的提示词(不是结构化写作), 前缀为"你的Code个性是".\n\n';
         return yaml;
     }
 
