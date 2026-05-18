@@ -323,6 +323,12 @@
             border-color: var(--color-mint);
             color: #157F73;
         }
+        .quick-preset-btn.active {
+            background: var(--color-mint-soft);
+            border-color: var(--color-mint);
+            color: #157F73;
+            font-weight: 600;
+        }
         .quick-preset-label {
             font-size: 0.7rem;
             color: var(--color-text-tertiary);
@@ -1339,9 +1345,13 @@
     function updatePresetStatus(key) {
         // Update active button
         document.querySelectorAll('.preset-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.quick-preset-btn').forEach(btn => btn.classList.remove('active'));
         const btnMap = { strict: 'presetStrict', pragmatic: 'presetPragmatic', prototype: 'presetPrototype', library: 'presetLibrary', enterprise: 'presetEnterprise' };
+        const quickBtnMap = { strict: 'quickPresetStrict', pragmatic: 'quickPresetPragmatic', prototype: 'quickPresetPrototype', library: 'quickPresetLibrary', enterprise: 'quickPresetEnterprise' };
         const activeBtn = document.getElementById(btnMap[key]);
         if (activeBtn) activeBtn.classList.add('active');
+        const activeQuickBtn = document.getElementById(quickBtnMap[key]);
+        if (activeQuickBtn) activeQuickBtn.classList.add('active');
         // Update status text
         const statusEl = document.getElementById('presetStatus');
         if (statusEl) {
