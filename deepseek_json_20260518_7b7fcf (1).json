@@ -1,0 +1,571 @@
+{
+  "dimensionsData": [
+    {
+      "id": "indentationStyle",
+      "category": "formatting",
+      "name": "缩进风格一致性 (Indentation Style Consistency)",
+      "descriptions": [
+        "不强制缩进，允许混合 Tab 与空格",
+        "允许使用 Tab 或空格，但单个文件内保持一致即可",
+        "统一使用 Tab 缩进，宽度可调整",
+        "统一使用 2 个空格缩进",
+        "统一使用 4 个空格缩进",
+        "强制缩进为 4 空格，并通过 linter 自动修复，违反即报错"
+      ]
+    },
+    {
+      "id": "lineLengthLimit",
+      "category": "formatting",
+      "name": "行宽限制 (Line Length Limit)",
+      "descriptions": [
+        "无行宽限制",
+        "建议不超过 200 字符",
+        "软限制 120 字符，允许偶尔超出",
+        "软限制 100 字符",
+        "硬限制 80 字符，逻辑行换行",
+        "严格 80 字符，并自动格式化换行，强制遵守"
+      ]
+    },
+    {
+      "id": "whitespaceBracing",
+      "category": "formatting",
+      "name": "空格与括号风格 (Whitespace & Brace Style)",
+      "descriptions": [
+        "不关心空格与括号风格，允许混用",
+        "函数花括号换行（Allman 风格）",
+        "函数花括号不换行（K&R 风格）",
+        "统一使用 K&R 风格，运算符两侧加空格",
+        "统一使用 K&R 风格，属性内无多余空格",
+        "所有空格和括号风格遵循统一配置，违反即警告"
+      ]
+    },
+    {
+      "id": "namingCasing",
+      "category": "naming",
+      "name": "命名大小写规范 (Naming Casing Convention)",
+      "descriptions": [
+        "允许任意大小写风格混合",
+        "变量使用下划线分隔，函数使用驼峰",
+        "变量使用小驼峰，常量全大写蛇形",
+        "类与类型使用大驼峰，其余按语言标准",
+        "强制遵循语言社区标准（如 PEP8、Google Java Style）",
+        "大小写规范通过静态分析强制执行，不允许例外"
+      ]
+    },
+    {
+      "id": "variableNamingDescriptiveness",
+      "category": "naming",
+      "name": "变量命名描述性 (Variable Naming Descriptiveness)",
+      "descriptions": [
+        "偏好单字母或极短变量名（如 i、x、tmp）",
+        "在简短上下文中使用缩写，但可读性稍好（如 cnt）",
+        "使用有意义但简短的名字（如 count、index）",
+        "使用完整单词的清晰名称（如 userCount）",
+        "使用描述性短语（如 numberOfActiveUsers）",
+        "必须使用完整句子级命名，精确描述意图与类型"
+      ]
+    },
+    {
+      "id": "functionNamingVerbosity",
+      "category": "naming",
+      "name": "函数/方法命名详细度 (Function/Method Naming Verbosity)",
+      "descriptions": [
+        "使用极简名称，如 `do`、`run`",
+        "动名词组合，但保留缩写（如 `calcTotal`）",
+        "清晰动作+目标，但简短（如 `calculateTotal`）",
+        "完整动作+目标，不含缩写（如 `calculateTotalRevenue`）",
+        "包含动作、目标与上下文（如 `calculateTotalRevenueForYear`）",
+        "冗长名称，包含所有细节（如 `calculateTotalRevenueAndApplyDiscountsForYear2026`）"
+      ]
+    },
+    {
+      "id": "abbreviationUsage",
+      "category": "naming",
+      "name": "缩写使用度 (Abbreviation Usage)",
+      "descriptions": [
+        "禁止使用任何缩写，所有标识符必须全拼",
+        "极少数通用缩写允许（如 num、msg）",
+        "允许常见领域缩写（如 db、http、api）",
+        "中度使用缩写，代码中常出现（如 conf、ctx、init）",
+        "大量使用简短缩写，长度优先于可读性",
+        "偏好极短缩写，即使影响可读性也在所不惜"
+      ]
+    },
+    {
+      "id": "commentDensity",
+      "category": "documentation",
+      "name": "注释密度 (Comment Density)",
+      "descriptions": [
+        "无注释，代码自解释",
+        "仅对复杂算法添加少量注释",
+        "每个函数有简短功能说明",
+        "关键逻辑块有注释，公共 API 有文档",
+        "大部分非平凡代码行都有注释说明",
+        "几乎每行都有注释，解释意图与实现"
+      ]
+    },
+    {
+      "id": "docblockUsage",
+      "category": "documentation",
+      "name": "文档块使用 (Docblock / Documentation Block Usage)",
+      "descriptions": [
+        "不使用任何文档块",
+        "仅在公共函数上添加一行描述",
+        "为所有公共 API 生成简短文档块",
+        "为所有公共 API 生成完整文档块，含参数与返回值",
+        "为所有函数（含私有）生成完整文档块",
+        "文档块必须包含参数、返回、异常、示例和链接，通过工具强制检查"
+      ]
+    },
+    {
+      "id": "todoUsage",
+      "category": "documentation",
+      "name": "TODO/FIXME 使用频率 (TODO/FIXME Usage)",
+      "descriptions": [
+        "不使用 TODO 或 FIXME 注释",
+        "仅在主要缺失功能处添加 TODO",
+        "在每个未完成特性处添加 TODO",
+        "频繁添加 TODO 和 FIXME 标记待办事项",
+        "在几乎所有潜在改进点都插入 TODO",
+        "代码中充斥着 TODO、FIXME、HACK 标记，用于追踪任何微小问题"
+      ]
+    },
+    {
+      "id": "inlineCommentStyle",
+      "category": "documentation",
+      "name": "内联注释风格 (Inline Comment Style)",
+      "descriptions": [
+        "不写任何内联注释",
+        "仅在非直观的行末添加解释",
+        "在复杂逻辑处使用行末注释",
+        "每个重要步骤前放置单行注释",
+        "每几行代码就有一行注释，形成叙述",
+        "密集的内联注释，几乎形成编码日志"
+      ]
+    },
+    {
+      "id": "fileHeaderComment",
+      "category": "documentation",
+      "name": "文件头注释 (File Header Comment)",
+      "descriptions": [
+        "没有文件头注释",
+        "仅包含文件名与创建者",
+        "包含文件名、作者、创建日期",
+        "包含文件名、作者、日期与简要描述",
+        "包含文件名、描述、作者、日期、变更日志",
+        "完整的文件头包含版权声明、许可、描述、作者、版本、变更历史"
+      ]
+    },
+    {
+      "id": "functionLength",
+      "category": "structure",
+      "name": "函数/方法长度限制 (Function/Method Length)",
+      "descriptions": [
+        "函数长度无限制，可以任意长",
+        "建议函数不超过 200 行",
+        "函数保持在 100 行以内",
+        "函数通常在 50 行以内",
+        "严格限制在 30 行以内",
+        "强制每个函数不超过 20 行，鼓励提取辅助函数"
+      ]
+    },
+    {
+      "id": "fileLength",
+      "category": "structure",
+      "name": "文件长度限制 (File Length)",
+      "descriptions": [
+        "文件长度无限制",
+        "建议不超过 1000 行",
+        "文件不超过 500 行",
+        "文件通常保持在 300 行以内",
+        "严格限制在 200 行",
+        "文件不超过 150 行，超长必须拆分模块"
+      ]
+    },
+    {
+      "id": "nestingDepth",
+      "category": "structure",
+      "name": "嵌套深度控制 (Nesting Depth Control)",
+      "descriptions": [
+        "允许任意深度的嵌套",
+        "建议嵌套不超过 6 层",
+        "嵌套通常不超过 4 层",
+        "限制在 3 层以内",
+        "最多 2 层嵌套，超出则重构",
+        "强制最大嵌套深度为 2，通过静态分析保证"
+      ]
+    },
+    {
+      "id": "cyclomaticComplexity",
+      "category": "structure",
+      "name": "圈复杂度限制 (Cyclomatic Complexity Limit)",
+      "descriptions": [
+        "不检查圈复杂度",
+        "建议单个函数复杂度不超过 20",
+        "复杂度不超过 15",
+        "复杂度不超过 10",
+        "严格限制在 8 以内",
+        "强制每个函数圈复杂度不超过 5，复杂逻辑拆分"
+      ]
+    },
+    {
+      "id": "singleResponsibility",
+      "category": "structure",
+      "name": "单一职责原则 (Single Responsibility Principle)",
+      "descriptions": [
+        "允许函数/类做多件不相关的事",
+        "仅在明显处分离职责",
+        "大多数函数只做一件事",
+        "每个函数/类仅有一个职责",
+        "严格遵循单一职责，任何多职责都会重构",
+        "模块高度内聚，职责单一且原子化，禁止多功能混合"
+      ]
+    },
+    {
+      "id": "moduleOrganization",
+      "category": "structure",
+      "name": "模块与文件夹组织 (Module / Folder Organization)",
+      "descriptions": [
+        "所有文件随意放置，无组织",
+        "按文件类型分组（所有模型放一起）",
+        "按功能或特性分组（每个特性一个文件夹）",
+        "分层架构（如 MVC 清晰分离）",
+        "按领域驱动设计聚合组织",
+        "高度模块化，每个领域独立打包，公开接口严格控制"
+      ]
+    },
+    {
+      "id": "importOrganization",
+      "category": "formatting",
+      "name": "导入/依赖组织 (Import Organization)",
+      "descriptions": [
+        "导入顺序无要求",
+        "按使用顺序导入",
+        "按来源分组，但不排序",
+        "按标准库、第三方、本地排序",
+        "排序并移除未使用的导入",
+        "导入严格排序，并通过工具自动修复，禁止通配符导入"
+      ]
+    },
+    {
+      "id": "errorPropagation",
+      "category": "errorHandling",
+      "name": "错误传播策略 (Error Propagation Strategy)",
+      "descriptions": [
+        "吞没错误，不传播也不处理",
+        "仅在顶层打印错误并继续",
+        "在适当层级记录并重新抛出",
+        "所有错误显式传播，调用者必须处理",
+        "错误封装为统一格式并传播，附带上下文",
+        "所有错误都分类、包装并传播到统一错误处理层，禁止忽略"
+      ]
+    },
+    {
+      "id": "exceptionUsage",
+      "category": "errorHandling",
+      "name": "异常使用程度 (Exception Usage Level)",
+      "descriptions": [
+        "不使用异常，仅用返回码或成功/失败标志",
+        "仅在严重错误时抛出异常",
+        "对非正常情况抛出异常，但可恢复",
+        "使用受检异常，要求调用者处理",
+        "广泛使用自定义异常类表示不同错误",
+        "以异常为常规控制流，频繁抛出与捕获"
+      ]
+    },
+    {
+      "id": "nullHandling",
+      "category": "errorHandling",
+      "name": "空值处理严格度 (Null / Undefined Handling Strictness)",
+      "descriptions": [
+        "不检查 null，可能抛出 NullPointerException",
+        "在关键参数处进行 null 检查",
+        "使用断言防止 null 传入公共 API",
+        "使用 Optional/Maybe 类型替代 null 返回",
+        "全面禁止使用 null，采用空对象或 Option 类型",
+        "静态类型系统保证非空，启用严格空安全模式"
+      ]
+    },
+    {
+      "id": "loggingLevel",
+      "category": "errorHandling",
+      "name": "日志记录级别 (Logging Level)",
+      "descriptions": [
+        "不使用任何日志",
+        "仅在应用启动与致命错误时记录",
+        "在主要业务节点记录 INFO 日志",
+        "记录 DEBUG 级别的关键路径信息",
+        "详细日志记录所有主要操作与变量状态",
+        "为每个操作生成 TRACE 级别细粒度日志，覆盖整个调用链"
+      ]
+    },
+    {
+      "id": "testCoverage",
+      "category": "testing",
+      "name": "测试覆盖率要求 (Test Coverage Requirement)",
+      "descriptions": [
+        "无测试要求",
+        "核心模块有少量测试",
+        "要求 50% 以上的代码覆盖率",
+        "要求 80% 代码覆盖率",
+        "要求 95% 覆盖率，分支覆盖",
+        "强制 100% 代码覆盖率（含分支、条件），未覆盖禁止合并"
+      ]
+    },
+    {
+      "id": "testIsolation",
+      "category": "testing",
+      "name": "测试独立性 (Test Independence)",
+      "descriptions": [
+        "测试可依赖共享状态与执行顺序",
+        "测试之间不共享可变状态，但可依赖数据库",
+        "每个测试准备自身数据，但共享不可变配置",
+        "每个测试完全独立，不依赖外部资源",
+        "测试严格隔离，使用内存数据库或模拟",
+        "每个测试运行在完全隔离的沙盒环境，无任何副作用"
+      ]
+    },
+    {
+      "id": "assertionStyle",
+      "category": "testing",
+      "name": "断言风格 (Assertion Style)",
+      "descriptions": [
+        "不使用断言，仅用打印输出判断",
+        "使用简单的 assert 语句",
+        "使用框架默认断言（如 assertEquals）",
+        "使用 BDD 风格断言（如 expect(x).toBe(y)）",
+        "使用链式匹配器，可读性强（如 should、expect）",
+        "统一使用声明式断言库，并生成行为说明书"
+      ]
+    },
+    {
+      "id": "mockingStyle",
+      "category": "testing",
+      "name": "模拟与桩使用度 (Mocking / Stubbing Usage)",
+      "descriptions": [
+        "不使用模拟，测试直接调用真实实现",
+        "仅在外部服务调用上使用桩",
+        "对数据库、网络等慢速依赖使用模拟",
+        "所有单元测试的外部依赖均模拟",
+        "使用依赖注入与模拟框架精细控制行为",
+        "严格模拟一切外部边界，测试仅验证代码逻辑"
+      ]
+    },
+    {
+      "id": "algorithmicEfficiency",
+      "category": "performance",
+      "name": "算法效率关注度 (Algorithmic Efficiency Focus)",
+      "descriptions": [
+        "不关心时间复杂度或空间复杂度",
+        "对明显 O(n^2) 以上的算法进行优化",
+        "确保主要流程使用线性或对数级别算法",
+        "选择已知最优算法，必要时分析复杂度",
+        "主动分析时间与空间复杂度，并记录",
+        "严格证明算法复杂度，并确保在最坏情况下的边界"
+      ]
+    },
+    {
+      "id": "prematureOptimization",
+      "category": "performance",
+      "name": "过早优化抑制 (Premature Optimization Avoidance)",
+      "descriptions": [
+        "随时优化，一开始就追求性能",
+        "在编码时尽量保持高效，但不过度",
+        "先写出清晰代码，再识别瓶颈优化",
+        "明确规定只优化经过剖析的热点路径",
+        "禁止任何无测量数据的优化，遵循性能分析驱动",
+        "严格遵循“先正确、再清晰、后优化”原则，违反需说明"
+      ]
+    },
+    {
+      "id": "resourceManagement",
+      "category": "performance",
+      "name": "资源管理自动性 (Resource Management Automaticity)",
+      "descriptions": [
+        "手动打开关闭资源，容易泄漏",
+        "使用 try-finally 确保关闭",
+        "使用语言提供的 `with` 语句或 using 块",
+        "采用 RAII 模式或 Disposable 模式",
+        "所有资源类实现 AutoCloseable 并统一管理",
+        "资源生命周期由容器或智能指针完全自动管理，禁止手动释放"
+      ]
+    },
+    {
+      "id": "memoryManagement",
+      "category": "performance",
+      "name": "内存管理谨慎度 (Memory Management Care)",
+      "descriptions": [
+        "随意分配内存，不关心回收",
+        "避免明显的大对象长期持有",
+        "注意集合初始化大小，防止频繁扩容",
+        "主动使用弱引用、缓存策略管理内存",
+        "使用内存分析工具监控，消除泄漏",
+        "严格防范内存泄漏与过度分配，内存占用可控"
+      ]
+    },
+    {
+      "id": "threadSafety",
+      "category": "concurrencySecurity",
+      "name": "线程安全关注度 (Thread Safety Consideration)",
+      "descriptions": [
+        "不考虑线程安全，代码只能在单线程运行",
+        "在共享数据处加锁，但不统一",
+        "使用并发安全的数据结构",
+        "所有共享可变状态使用同步原语保护",
+        "设计不可变对象或消息传递模型减少锁",
+        "全面采用并发安全模式（如 Actor 模型），并证明无死锁"
+      ]
+    },
+    {
+      "id": "asyncPattern",
+      "category": "concurrencySecurity",
+      "name": "异步与并发模式 (Async / Concurrency Pattern Adoption)",
+      "descriptions": [
+        "仅使用同步阻塞代码",
+        "在 IO 操作处使用回调或 Promise",
+        "主要 IO 密集任务使用 async/await",
+        "全面采用异步非阻塞模型，避免阻塞线程",
+        "使用响应式流或协程编排并发任务",
+        "整个代码库基于异步事件循环，同步代码仅限计算密集处"
+      ]
+    },
+    {
+      "id": "inputValidation",
+      "category": "concurrencySecurity",
+      "name": "输入验证严格度 (Input Validation Strictness)",
+      "descriptions": [
+        "不验证任何外部输入",
+        "仅在前端进行基本校验",
+        "在后端入口处校验数据类型与长度",
+        "使用白名单校验所有输入，拒绝非法值",
+        "输入验证结合业务规则，详细错误反馈",
+        "多层防御，所有外部输入均经过严格净化与验证，防注入"
+      ]
+    },
+    {
+      "id": "outputSanitization",
+      "category": "concurrencySecurity",
+      "name": "输出清理 (Output Sanitization)",
+      "descriptions": [
+        "不进行输出清理，直接拼接 HTML 等",
+        "对 HTML 输出进行基本转义",
+        "根据上下文（HTML/JS/CSS）分别编码",
+        "使用模板引擎自动转义，禁止原始输出",
+        "输出内容安全策略（CSP）配合转义",
+        "所有输出均通过安全层，防止 XSS、注入，强制转义"
+      ]
+    },
+    {
+      "id": "dependencyInjection",
+      "category": "design",
+      "name": "依赖注入使用度 (Dependency Injection Usage)",
+      "descriptions": [
+        "硬编码所有依赖，在类内部 new",
+        "通过工厂方法创建依赖，但耦合",
+        "通过构造函数注入主要依赖",
+        "使用 DI 容器统一管理依赖",
+        "面向接口编程，所有依赖由容器注入",
+        "完全控制反转，所有对象依赖关系由框架自动装配"
+      ]
+    },
+    {
+      "id": "interfaceAbstraction",
+      "category": "design",
+      "name": "接口与抽象依赖程度 (Interface & Abstraction Reliance)",
+      "descriptions": [
+        "不使用接口，所有调用基于具体类",
+        "仅为明显可替换组件定义接口",
+        "为每个主要服务定义接口",
+        "编程到接口，实现隐藏细节",
+        "所有公共 API 通过接口暴露，内部实现隔离",
+        "极高抽象，大量使用接口与抽象类，遵循依赖倒置原则"
+      ]
+    },
+    {
+      "id": "designPatternUsage",
+      "category": "design",
+      "name": "设计模式应用程度 (Design Pattern Application Level)",
+      "descriptions": [
+        "不使用任何设计模式，代码过程化",
+        "偶尔在合适处应用单例、工厂等",
+        "常见模式（策略、观察者）按需使用",
+        "积极应用 GOF 设计模式，提高扩展性",
+        "以模式为第一设计语言，随处可见",
+        "强制使用模式，每个设计问题必须套用一个经典模式"
+      ]
+    },
+    {
+      "id": "codeReusability",
+      "category": "design",
+      "name": "代码复用强制力 (Code Reusability Enforcement)",
+      "descriptions": [
+        "允许复制粘贴代码",
+        "当重复出现两次时，建议提取",
+        "重复出现时，提取为函数",
+        "所有重复代码必须提取公共模块",
+        "构建内部库与工具集以促进复用",
+        "零容忍重复代码，DRY 原则严格执行，通过静态检查"
+      ]
+    },
+    {
+      "id": "typeAnnotation",
+      "category": "naming",
+      "name": "类型注解与静态类型严格度 (Type Annotation Strictness)",
+      "descriptions": [
+        "不使用任何类型注解",
+        "仅在函数签名中添加类型提示",
+        "所有函数参数与返回值有类型注解",
+        "启用严格类型检查模式",
+        "全面类型注解，禁止隐式 any",
+        "完全依赖类型系统，开启所有严格模式，禁止绕过类型检查"
+      ]
+    }
+  ],
+  "categories": [
+    {
+      "id": "formatting",
+      "name": "格式与风格 (Formatting & Style)",
+      "dimensions": ["indentationStyle", "lineLengthLimit", "whitespaceBracing", "importOrganization"]
+    },
+    {
+      "id": "naming",
+      "name": "命名约定 (Naming Conventions)",
+      "dimensions": ["namingCasing", "variableNamingDescriptiveness", "functionNamingVerbosity", "abbreviationUsage", "typeAnnotation"]
+    },
+    {
+      "id": "documentation",
+      "name": "注释与文档 (Comments & Documentation)",
+      "dimensions": ["commentDensity", "docblockUsage", "todoUsage", "inlineCommentStyle", "fileHeaderComment"]
+    },
+    {
+      "id": "structure",
+      "name": "代码结构与复杂度 (Code Structure & Complexity)",
+      "dimensions": ["functionLength", "fileLength", "nestingDepth", "cyclomaticComplexity", "singleResponsibility", "moduleOrganization"]
+    },
+    {
+      "id": "errorHandling",
+      "name": "错误处理与日志 (Error Handling & Logging)",
+      "dimensions": ["errorPropagation", "exceptionUsage", "nullHandling", "loggingLevel"]
+    },
+    {
+      "id": "testing",
+      "name": "测试与质量保证 (Testing & QA)",
+      "dimensions": ["testCoverage", "testIsolation", "assertionStyle", "mockingStyle"]
+    },
+    {
+      "id": "performance",
+      "name": "性能与资源 (Performance & Resources)",
+      "dimensions": ["algorithmicEfficiency", "prematureOptimization", "resourceManagement", "memoryManagement"]
+    },
+    {
+      "id": "concurrencySecurity",
+      "name": "并发与安全 (Concurrency & Security)",
+      "dimensions": ["threadSafety", "asyncPattern", "inputValidation", "outputSanitization"]
+    },
+    {
+      "id": "design",
+      "name": "抽象、模块化与设计 (Abstraction, Modularity & Design)",
+      "dimensions": ["dependencyInjection", "interfaceAbstraction", "designPatternUsage", "codeReusability"]
+    }
+  ]
+}
