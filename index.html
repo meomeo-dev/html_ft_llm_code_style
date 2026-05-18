@@ -436,12 +436,12 @@
                 "category": "naming",
                 "name": "命名大小写规范 (Naming Casing Convention)",
                 "descriptions": [
-                        "无任何命名约定，允许随意混合不同大小写与分隔样式",
-                        "同一代码库内要求命名风格一致（全部标识符采用同一类分隔方式，如全小驼峰或全下划线），但不限定具体样式",
-                        "按标识符类型区分命名风格，并要求类型间风格有明显视觉区别，但不限定使用哪一种具体样式组合",
-                        "标识符命名风格必须符合该语言社区的主流惯例，允许存在少数有文档说明的例外",
-                        "严格遵循指定的语言社区官方风格指南（如 PEP 8、Google Java Style Guide），无例外",
-                        "命名规范通过静态分析工具自动强制执行，任何违规均被构建或提交阻断"
+                        "屏幕上标识符的大小写与分隔符无任何规律，驼峰、下划线、连字符等样式随机出现，无法从命名外观判断标识符的任何属性",
+                        "屏幕上所有标识符呈现统一的视觉模式——要么全部采用同一种单词连接方式（如全小写点号分隔、全小驼峰、全蛇形下划线或全连字符分隔），虽未区分类型，但整体视觉一致",
+                        "屏幕上不同类型标识符的命名外观有明显视觉差异，可仅凭大小写与分隔符就将类、函数、变量、常量区分开，但具体哪种类型采用哪种样式项目可自行选择",
+                        "屏幕上各类标识符的命名外观与该语言社区广泛使用的风格一致——使有该语言经验的开发者可凭视觉快速识别标识符类型，少数例外需标注说明原因",
+                        "屏幕上所有标识符的命名外观与项目明确选定的语言风格指南（如 PEP 8、Google Java Style Guide、Airbnb JS Style Guide）完全匹配，任何因外部约束造成的不可避免偏离均在注释或抑制规则中显式记录",
+                        "命名外观的一致性由静态分析工具自动检查，任何未记录或未经批准的偏离都会在提交或构建阶段被自动阻断，屏幕上不会出现不可解释的命名风格异常"
                 ]
         },
         {
@@ -449,12 +449,12 @@
                 "category": "naming",
                 "name": "变量命名描述性 (Variable Naming Descriptiveness)",
                 "descriptions": [
-                        "单字母或占位符名（如 i, x, tmp），完全无描述性",
-                        "极简缩写，仅局部可读（如 cnt, idx, msg）",
-                        "单个完整单词（如 count, index, name），具备基本含义",
-                        "清晰的复合名称（如 userCount, isActive），意图明显且简短",
-                        "描述性短语，带必要限定词（如 numberOfActiveUsers, maxRetryCount）",
-                        "精准上下文命名，融入范围或单位，但保持简洁（如 activeUserCountInSession, elapsedTimeMs）"
+                        "单字母或占位符名（如 i, x, tmp），1-3 字符，无分隔符，视觉上几乎不可见，完全无描述性",
+                        "极简缩写（如 cnt, idx, msg），3-5 字符，仅局部可读，需额外解码才能理解含义",
+                        "单个完整单词（如 count, index, name），5-10 字符，具备基本含义，视觉上形成一个紧凑的语义单元",
+                        "清晰的双词复合名称（如 userCount, isActive），10-18 字符，出现第一个驼峰转折点，意图明显且简短",
+                        "描述性多词短语，带必要限定词（如 numberOfActiveUsers, maxRetryCount），15-25 字符，2-3 个驼峰转折，视觉上构成完整短语块",
+                        "精准上下文命名，包含一个关键范围限定或单位后缀（如 activeUserCountInSession, elapsedTimeMs），18-28 字符，视觉上为精炼的完整短句，信息密度最高但避免冗余修饰"
                 ]
         },
         {
@@ -463,7 +463,7 @@
                 "name": "函数/方法命名详细度 (Function/Method Naming Verbosity)",
                 "descriptions": [
                         "仅使用单个通用动词或字母，无目标信息（如 do, run, f）",
-                        "动词与名词均采用缩写形式，视觉紧凑（如 calcTotal, getVal, initCfg）",
+                        "动词与名词采用缩写或极短形式，视觉紧凑（如 calcTotal, getVal, initCfg）",
                         "动词完整拼写，名词为泛化词，未揭示业务含义（如 calculateTotal, processData, fetchInfo）",
                         "动词完整拼写，名词具有明确业务含义，不含缩写（如 calculateRevenue, fetchUserList, updateOrderStatus）",
                         "在明确动作与目标基础上，增加最小必要上下文（如 calculateRevenueForYear, fetchUserById）",
