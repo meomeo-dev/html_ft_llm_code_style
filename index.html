@@ -364,13 +364,15 @@
 
         <div class="presets">
             <div class="preset-label">Presets</div>
-            <button class="preset-button active" id="presetStrict">严格工程</button>
+            <button class="preset-button active" id="presetStrict">规约优先</button>
             <button class="preset-button" id="presetPragmatic">实用平衡</button>
             <button class="preset-button" id="presetPrototype">快速原型</button>
             <button class="preset-button" id="presetLibrary">开源库作者</button>
             <button class="preset-button" id="presetEnterprise">企业级</button>
+            <button class="preset-button" id="presetMinimalist">极简派</button>
+            <button class="preset-button" id="presetLiterate">说明型作者</button>
         </div>
-        <div id="presetStatus">当前预设：严格工程</div>
+        <div id="presetStatus">当前预设：规约优先</div>
 
         <div class="sliders-grid" id="sliders-grid"></div>
 
@@ -379,11 +381,13 @@
             <span id="copyMessage">已复制!</span>
             <span class="quick-preset-label">预设：</span>
             <span class="quick-presets">
-                <button class="quick-preset-btn" id="quickPresetStrict">严格工程</button>
+                <button class="quick-preset-btn" id="quickPresetStrict">规约优先</button>
                 <button class="quick-preset-btn" id="quickPresetPragmatic">实用平衡</button>
                 <button class="quick-preset-btn" id="quickPresetPrototype">快速原型</button>
                 <button class="quick-preset-btn" id="quickPresetLibrary">开源库作者</button>
                 <button class="quick-preset-btn" id="quickPresetEnterprise">企业级</button>
+                <button class="quick-preset-btn" id="quickPresetMinimalist">极简派</button>
+                <button class="quick-preset-btn" id="quickPresetLiterate">说明型作者</button>
             </span>
         </div>
 
@@ -1238,14 +1242,14 @@
                 "indentationStyle": 5,
                 "lineLengthDistribution": 4,
                 "tokenSpacing": 5,
-                "bracePlacement": 3,
+                "bracePlacement": 5,
                 "optionalBlockBraces": 5,
                 "blankLineUsage": 5,
                 "importLayout": 5,
                 "methodChainingFormat": 5,
                 "trailingCommaUsage": 4,
                 "stringQuoteStyle": 5,
-                "verticalAlignment": 3,
+                "verticalAlignment": 2,
                 "listArgumentWrapping": 4,
                 "operatorLineBreak": 5,
                 "statementPacking": 4,
@@ -1253,45 +1257,45 @@
                 "identifierLength": 4,
                 "functionNameLength": 4,
                 "abbreviationUsage": 1,
-                "identifierAffixes": 4,
-                "typeAnnotationDensity": 5,
-                "literalNaming": 4,
+                "identifierAffixes": 3,
+                "typeAnnotationDensity": 3,
+                "literalNaming": 3,
                 "literalFormatting": 4,
                 "commentDensity": 2,
-                "docblockStyle": 5,
+                "docblockStyle": 2,
                 "todoMarkerUsage": 1,
                 "inlineCommentStyle": 2,
-                "fileHeaderComment": 4,
-                "sectionSeparatorUsage": 3,
-                "complexityCommentUsage": 3,
+                "fileHeaderComment": 1,
+                "sectionSeparatorUsage": 2,
+                "complexityCommentUsage": 1,
                 "functionLength": 4,
-                "fileLength": 4,
+                "fileLength": 3,
                 "nestingDepth": 4,
-                "branchDensity": 4,
-                "extractionGranularity": 4,
+                "branchDensity": 3,
+                "extractionGranularity": 3,
                 "signatureWrapping": 5,
                 "memberOrdering": 5,
                 "topLevelOrdering": 5,
-                "metadataAnnotationDensity": 3,
-                "errorMarkerDensity": 4,
-                "exceptionKeywordDensity": 3,
-                "nullMarkerDensity": 4,
-                "logStatementDensity": 3,
-                "assertionMarkerDensity": 4,
-                "asyncMarkerDensity": 3,
-                "resourceLifetimeStyle": 4,
-                "testNamingDensity": 5,
-                "testSetupStyle": 4,
-                "assertionStyle": 4,
-                "testDoubleUsage": 3,
-                "repeatedCodeBlocks": 4
+                "metadataAnnotationDensity": 2,
+                "errorMarkerDensity": 2,
+                "exceptionKeywordDensity": 2,
+                "nullMarkerDensity": 2,
+                "logStatementDensity": 2,
+                "assertionMarkerDensity": 2,
+                "asyncMarkerDensity": 2,
+                "resourceLifetimeStyle": 2,
+                "testNamingDensity": 2,
+                "testSetupStyle": 3,
+                "assertionStyle": 3,
+                "testDoubleUsage": 2,
+                "repeatedCodeBlocks": 3
         },
         "pragmatic": {
-                "indentationStyle": 3,
+                "indentationStyle": 4,
                 "lineLengthDistribution": 3,
-                "tokenSpacing": 3,
+                "tokenSpacing": 4,
                 "bracePlacement": 2,
-                "optionalBlockBraces": 3,
+                "optionalBlockBraces": 4,
                 "blankLineUsage": 3,
                 "importLayout": 3,
                 "methodChainingFormat": 2,
@@ -1300,22 +1304,22 @@
                 "verticalAlignment": 2,
                 "listArgumentWrapping": 3,
                 "operatorLineBreak": 3,
-                "statementPacking": 2,
-                "identifierCasing": 3,
+                "statementPacking": 3,
+                "identifierCasing": 4,
                 "identifierLength": 3,
                 "functionNameLength": 3,
                 "abbreviationUsage": 2,
-                "identifierAffixes": 2,
+                "identifierAffixes": 1,
                 "typeAnnotationDensity": 3,
                 "literalNaming": 3,
                 "literalFormatting": 2,
                 "commentDensity": 2,
-                "docblockStyle": 3,
+                "docblockStyle": 2,
                 "todoMarkerUsage": 2,
-                "inlineCommentStyle": 2,
-                "fileHeaderComment": 2,
-                "sectionSeparatorUsage": 2,
-                "complexityCommentUsage": 2,
+                "inlineCommentStyle": 1,
+                "fileHeaderComment": 0,
+                "sectionSeparatorUsage": 1,
+                "complexityCommentUsage": 1,
                 "functionLength": 3,
                 "fileLength": 3,
                 "nestingDepth": 3,
@@ -1328,31 +1332,31 @@
                 "errorMarkerDensity": 3,
                 "exceptionKeywordDensity": 2,
                 "nullMarkerDensity": 3,
-                "logStatementDensity": 3,
+                "logStatementDensity": 2,
                 "assertionMarkerDensity": 2,
                 "asyncMarkerDensity": 2,
                 "resourceLifetimeStyle": 3,
                 "testNamingDensity": 3,
-                "testSetupStyle": 3,
+                "testSetupStyle": 2,
                 "assertionStyle": 2,
                 "testDoubleUsage": 2,
                 "repeatedCodeBlocks": 3
         },
         "prototype": {
                 "indentationStyle": 1,
-                "lineLengthDistribution": 0,
+                "lineLengthDistribution": 1,
                 "tokenSpacing": 1,
-                "bracePlacement": 0,
+                "bracePlacement": 1,
                 "optionalBlockBraces": 0,
                 "blankLineUsage": 1,
                 "importLayout": 1,
                 "methodChainingFormat": 0,
                 "trailingCommaUsage": 1,
-                "stringQuoteStyle": 0,
+                "stringQuoteStyle": 1,
                 "verticalAlignment": 0,
                 "listArgumentWrapping": 0,
                 "operatorLineBreak": 1,
-                "statementPacking": 0,
+                "statementPacking": 1,
                 "identifierCasing": 1,
                 "identifierLength": 1,
                 "functionNameLength": 1,
@@ -1361,9 +1365,9 @@
                 "typeAnnotationDensity": 0,
                 "literalNaming": 1,
                 "literalFormatting": 0,
-                "commentDensity": 0,
+                "commentDensity": 2,
                 "docblockStyle": 0,
-                "todoMarkerUsage": 4,
+                "todoMarkerUsage": 3,
                 "inlineCommentStyle": 0,
                 "fileHeaderComment": 0,
                 "sectionSeparatorUsage": 0,
@@ -1380,8 +1384,8 @@
                 "errorMarkerDensity": 1,
                 "exceptionKeywordDensity": 1,
                 "nullMarkerDensity": 1,
-                "logStatementDensity": 1,
-                "assertionMarkerDensity": 0,
+                "logStatementDensity": 2,
+                "assertionMarkerDensity": 1,
                 "asyncMarkerDensity": 1,
                 "resourceLifetimeStyle": 1,
                 "testNamingDensity": 0,
@@ -1444,64 +1448,170 @@
         },
         "enterprise": {
                 "indentationStyle": 5,
-                "lineLengthDistribution": 5,
+                "lineLengthDistribution": 4,
                 "tokenSpacing": 5,
                 "bracePlacement": 5,
                 "optionalBlockBraces": 5,
                 "blankLineUsage": 5,
                 "importLayout": 5,
-                "methodChainingFormat": 5,
-                "trailingCommaUsage": 5,
+                "methodChainingFormat": 4,
+                "trailingCommaUsage": 4,
                 "stringQuoteStyle": 5,
                 "verticalAlignment": 4,
-                "listArgumentWrapping": 5,
+                "listArgumentWrapping": 4,
                 "operatorLineBreak": 5,
-                "statementPacking": 5,
+                "statementPacking": 4,
                 "identifierCasing": 5,
+                "identifierLength": 4,
+                "functionNameLength": 4,
+                "abbreviationUsage": 1,
+                "identifierAffixes": 4,
+                "typeAnnotationDensity": 4,
+                "literalNaming": 4,
+                "literalFormatting": 4,
+                "commentDensity": 3,
+                "docblockStyle": 4,
+                "todoMarkerUsage": 1,
+                "inlineCommentStyle": 3,
+                "fileHeaderComment": 3,
+                "sectionSeparatorUsage": 4,
+                "complexityCommentUsage": 3,
+                "functionLength": 4,
+                "fileLength": 3,
+                "nestingDepth": 4,
+                "branchDensity": 3,
+                "extractionGranularity": 4,
+                "signatureWrapping": 4,
+                "memberOrdering": 5,
+                "topLevelOrdering": 5,
+                "metadataAnnotationDensity": 4,
+                "errorMarkerDensity": 4,
+                "exceptionKeywordDensity": 3,
+                "nullMarkerDensity": 4,
+                "logStatementDensity": 4,
+                "assertionMarkerDensity": 4,
+                "asyncMarkerDensity": 3,
+                "resourceLifetimeStyle": 4,
+                "testNamingDensity": 5,
+                "testSetupStyle": 4,
+                "assertionStyle": 4,
+                "testDoubleUsage": 4,
+                "repeatedCodeBlocks": 4
+        },
+        "minimalist": {
+                "indentationStyle": 4,
+                "lineLengthDistribution": 3,
+                "tokenSpacing": 4,
+                "bracePlacement": 4,
+                "optionalBlockBraces": 4,
+                "blankLineUsage": 2,
+                "importLayout": 3,
+                "methodChainingFormat": 2,
+                "trailingCommaUsage": 2,
+                "stringQuoteStyle": 4,
+                "verticalAlignment": 0,
+                "listArgumentWrapping": 2,
+                "operatorLineBreak": 3,
+                "statementPacking": 1,
+                "identifierCasing": 4,
+                "identifierLength": 2,
+                "functionNameLength": 2,
+                "abbreviationUsage": 3,
+                "identifierAffixes": 1,
+                "typeAnnotationDensity": 2,
+                "literalNaming": 2,
+                "literalFormatting": 1,
+                "commentDensity": 0,
+                "docblockStyle": 0,
+                "todoMarkerUsage": 0,
+                "inlineCommentStyle": 0,
+                "fileHeaderComment": 0,
+                "sectionSeparatorUsage": 0,
+                "complexityCommentUsage": 0,
+                "functionLength": 5,
+                "fileLength": 5,
+                "nestingDepth": 5,
+                "branchDensity": 4,
+                "extractionGranularity": 5,
+                "signatureWrapping": 2,
+                "memberOrdering": 3,
+                "topLevelOrdering": 3,
+                "metadataAnnotationDensity": 0,
+                "errorMarkerDensity": 1,
+                "exceptionKeywordDensity": 1,
+                "nullMarkerDensity": 1,
+                "logStatementDensity": 0,
+                "assertionMarkerDensity": 0,
+                "asyncMarkerDensity": 1,
+                "resourceLifetimeStyle": 1,
+                "testNamingDensity": 1,
+                "testSetupStyle": 1,
+                "assertionStyle": 1,
+                "testDoubleUsage": 0,
+                "repeatedCodeBlocks": 5
+        },
+        "literate": {
+                "indentationStyle": 4,
+                "lineLengthDistribution": 3,
+                "tokenSpacing": 4,
+                "bracePlacement": 3,
+                "optionalBlockBraces": 4,
+                "blankLineUsage": 4,
+                "importLayout": 4,
+                "methodChainingFormat": 3,
+                "trailingCommaUsage": 3,
+                "stringQuoteStyle": 4,
+                "verticalAlignment": 2,
+                "listArgumentWrapping": 4,
+                "operatorLineBreak": 4,
+                "statementPacking": 4,
+                "identifierCasing": 4,
                 "identifierLength": 5,
                 "functionNameLength": 5,
                 "abbreviationUsage": 0,
-                "identifierAffixes": 5,
-                "typeAnnotationDensity": 5,
-                "literalNaming": 5,
-                "literalFormatting": 5,
-                "commentDensity": 4,
+                "identifierAffixes": 2,
+                "typeAnnotationDensity": 3,
+                "literalNaming": 4,
+                "literalFormatting": 4,
+                "commentDensity": 5,
                 "docblockStyle": 5,
-                "todoMarkerUsage": 1,
+                "todoMarkerUsage": 2,
                 "inlineCommentStyle": 3,
                 "fileHeaderComment": 5,
                 "sectionSeparatorUsage": 5,
                 "complexityCommentUsage": 4,
-                "functionLength": 5,
-                "fileLength": 4,
-                "nestingDepth": 5,
-                "branchDensity": 5,
-                "extractionGranularity": 5,
-                "signatureWrapping": 5,
-                "memberOrdering": 5,
-                "topLevelOrdering": 5,
-                "metadataAnnotationDensity": 4,
-                "errorMarkerDensity": 5,
-                "exceptionKeywordDensity": 4,
-                "nullMarkerDensity": 5,
-                "logStatementDensity": 5,
-                "assertionMarkerDensity": 5,
-                "asyncMarkerDensity": 4,
-                "resourceLifetimeStyle": 5,
-                "testNamingDensity": 5,
-                "testSetupStyle": 5,
-                "assertionStyle": 5,
-                "testDoubleUsage": 5,
-                "repeatedCodeBlocks": 5
+                "functionLength": 3,
+                "fileLength": 2,
+                "nestingDepth": 3,
+                "branchDensity": 3,
+                "extractionGranularity": 3,
+                "signatureWrapping": 4,
+                "memberOrdering": 4,
+                "topLevelOrdering": 4,
+                "metadataAnnotationDensity": 1,
+                "errorMarkerDensity": 2,
+                "exceptionKeywordDensity": 2,
+                "nullMarkerDensity": 2,
+                "logStatementDensity": 2,
+                "assertionMarkerDensity": 2,
+                "asyncMarkerDensity": 2,
+                "resourceLifetimeStyle": 2,
+                "testNamingDensity": 3,
+                "testSetupStyle": 3,
+                "assertionStyle": 3,
+                "testDoubleUsage": 1,
+                "repeatedCodeBlocks": 3
         }
 };
 
     const presetDisplayNames = {
-        strict: '严格工程 (Strict Engineering)',
+        strict: '规约优先 (Convention First)',
         pragmatic: '实用平衡 (Pragmatic Balance)',
         prototype: '快速原型 (Rapid Prototyping)',
         library: '开源库作者 (Library Author)',
-        enterprise: '企业级 (Enterprise Grade)'
+        enterprise: '企业级 (Enterprise Grade)',
+        minimalist: '极简派 (Minimalist)',
+        literate: '说明型作者 (Literate Author)'
     };
 
     function applyPreset(key) {
@@ -1518,8 +1628,8 @@
         // Update active button
         document.querySelectorAll('.preset-button').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.quick-preset-btn').forEach(btn => btn.classList.remove('active'));
-        const btnMap = { strict: 'presetStrict', pragmatic: 'presetPragmatic', prototype: 'presetPrototype', library: 'presetLibrary', enterprise: 'presetEnterprise' };
-        const quickBtnMap = { strict: 'quickPresetStrict', pragmatic: 'quickPresetPragmatic', prototype: 'quickPresetPrototype', library: 'quickPresetLibrary', enterprise: 'quickPresetEnterprise' };
+        const btnMap = { strict: 'presetStrict', pragmatic: 'presetPragmatic', prototype: 'presetPrototype', library: 'presetLibrary', enterprise: 'presetEnterprise', minimalist: 'presetMinimalist', literate: 'presetLiterate' };
+        const quickBtnMap = { strict: 'quickPresetStrict', pragmatic: 'quickPresetPragmatic', prototype: 'quickPresetPrototype', library: 'quickPresetLibrary', enterprise: 'quickPresetEnterprise', minimalist: 'quickPresetMinimalist', literate: 'quickPresetLiterate' };
         const activeBtn = document.getElementById(btnMap[key]);
         if (activeBtn) activeBtn.classList.add('active');
         const activeQuickBtn = document.getElementById(quickBtnMap[key]);
@@ -1547,6 +1657,8 @@
     document.getElementById('presetPrototype').addEventListener('click', () => applyPreset('prototype'));
     document.getElementById('presetLibrary').addEventListener('click', () => applyPreset('library'));
     document.getElementById('presetEnterprise').addEventListener('click', () => applyPreset('enterprise'));
+    document.getElementById('presetMinimalist').addEventListener('click', () => applyPreset('minimalist'));
+    document.getElementById('presetLiterate').addEventListener('click', () => applyPreset('literate'));
 
     // Quick-preset copy buttons
     document.getElementById('quickPresetStrict').addEventListener('click', () => applyPreset('strict'));
@@ -1554,6 +1666,8 @@
     document.getElementById('quickPresetPrototype').addEventListener('click', () => applyPreset('prototype'));
     document.getElementById('quickPresetLibrary').addEventListener('click', () => applyPreset('library'));
     document.getElementById('quickPresetEnterprise').addEventListener('click', () => applyPreset('enterprise'));
+    document.getElementById('quickPresetMinimalist').addEventListener('click', () => applyPreset('minimalist'));
+    document.getElementById('quickPresetLiterate').addEventListener('click', () => applyPreset('literate'));
     </script>
 </body>
 </html>
