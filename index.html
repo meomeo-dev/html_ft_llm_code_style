@@ -294,6 +294,44 @@
             color: var(--color-mint);
         }
 
+        .quick-presets {
+            display: inline-flex;
+            gap: 0.35rem;
+            margin-left: 1rem;
+            vertical-align: middle;
+        }
+        .quick-preset-btn {
+            padding: 0.3rem 0.65rem;
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s var(--easing);
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .quick-preset-btn:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+            background: var(--color-accent-soft);
+        }
+        .quick-preset-btn:active {
+            background: var(--color-mint-soft);
+            border-color: var(--color-mint);
+            color: #157F73;
+        }
+        .quick-preset-label {
+            font-size: 0.7rem;
+            color: var(--color-text-tertiary);
+            margin: 0 0.15rem;
+        }
+        @media (max-width: 600px) {
+            .quick-presets { display: flex; flex-wrap: wrap; justify-content: center; margin: 0.5rem 0 0; }
+        }
+
         .preset-label {
             text-align: center;
             color: var(--color-text-tertiary);
@@ -331,8 +369,16 @@
         <div class="sliders-grid" id="sliders-grid"></div>
 
         <div class="actions">
-            <button id="copyButton">复制 YAML 到剪贴板</button>
+            <button id="copyButton">复制当前 YAML</button>
             <span id="copyMessage">已复制!</span>
+            <span class="quick-preset-label">快捷复制预设：</span>
+            <span class="quick-presets">
+                <button class="quick-preset-btn" data-preset="strict">严格工程</button>
+                <button class="quick-preset-btn" data-preset="pragmatic">实用平衡</button>
+                <button class="quick-preset-btn" data-preset="prototype">快速原型</button>
+                <button class="quick-preset-btn" data-preset="library">开源库作者</button>
+                <button class="quick-preset-btn" data-preset="enterprise">企业级</button>
+            </span>
         </div>
 
         <textarea id="yamlOutput" readonly></textarea>
@@ -1189,6 +1235,60 @@
         });
     }
 
+    function generateYamlForPreset(key) {
+        const cfg = presets[key];
+        if (!cfg) return '';
+        let yaml = '[待优化的提示词 开始]# 你的代码风格 — 预设：' + (presetDisplayNames[key] || key) + '
+
+';
+        yaml += '量表统一：0-5 离散档。
+
+你的代码风格应满足如下设定（按分组展示）：
+
+';
+        categories.forEach(cat => {
+            yaml += '- 分组: "' + cat.name + '"
+';
+            yaml += '  id: "' + cat.id + '"
+';
+            yaml += '  维度:
+';
+            cat.dimensions.forEach(id => {
+                const dim = getDim(id);
+                if (!dim) return;
+                const score = cfg[id] !== undefined ? cfg[id] : 3;
+                const description = dim.descriptions[score];
+                yaml += '    - 名称: "' + dim.name + '"
+';
+                yaml += '      分数: ' + score + '
+';
+                yaml += '      值说明: "' + description + '"
+';
+            });
+        });
+        yaml += '
+
+[待优化的提示词 结束]
+
+重写为一段连续书写的提示词(不是结构化写作), 前缀为"你的Code个性是".
+
+';
+        return yaml;
+    }
+
+    function copyPresetYaml(key) {
+        navigator.clipboard.writeText(generateYamlForPreset(key)).then(() => {
+            copyMessage.style.opacity = '1';
+            copyMessage.textContent = '已复制 ' + (presetDisplayNames[key] || key) + '!';
+            setTimeout(() => {
+                copyMessage.style.opacity = '0';
+                setTimeout(() => { copyMessage.textContent = '已复制!'; }, 500);
+            }, 2000);
+        }).catch(err => {
+            alert('复制失败，请手动复制。');
+        });
+    }
+
     function handleSliderInput(event) {
         if (event.target.type === 'range') {
             const id = event.target.name;
@@ -1318,6 +1418,11 @@
     document.getElementById('presetPrototype').addEventListener('click', () => applyPreset('prototype'));
     document.getElementById('presetLibrary').addEventListener('click', () => applyPreset('library'));
     document.getElementById('presetEnterprise').addEventListener('click', () => applyPreset('enterprise'));
+
+    // Quick-preset copy buttons
+    document.querySelectorAll('.quick-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => copyPresetYaml(btn.dataset.preset));
+    });
     </script>
 </body>
 </html>
