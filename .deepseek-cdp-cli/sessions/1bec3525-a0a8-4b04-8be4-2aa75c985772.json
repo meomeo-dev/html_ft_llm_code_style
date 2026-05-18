@@ -1,0 +1,117 @@
+{
+  "kind": "deepseek-stored-session",
+  "version": 1,
+  "session": {
+    "id": "1bec3525-a0a8-4b04-8be4-2aa75c985772",
+    "agentId": "chat",
+    "title": "Code Review Request Missing Code",
+    "createdAt": "2026-05-18T05:50:13.429Z",
+    "modeFact": {
+      "sourceLayer": "stored-session",
+      "rawModelType": "expert",
+      "resolvedMode": "expert",
+      "derivedFromLayer": "history-messages-mapped-session"
+    },
+    "branches": [
+      {
+        "id": "branch-main",
+        "sessionId": "1bec3525-a0a8-4b04-8be4-2aa75c985772",
+        "title": "你是代码风格审查专家，只关注代码视觉外观。审查4个维度，每个给简短结论+有问题给",
+        "createdAt": "2026-05-18T05:50:13.429Z",
+        "messages": [
+          {
+            "id": "1",
+            "role": "user",
+            "text": "你是代码风格审查专家，只关注代码视觉外观。审查4个维度，每个给简短结论+有问题给完整 descriptions：\n\n1. 文档块使用: 0-不使用文档块/1-仅在公共函数上添加一行描述/2-为所有公共API生成简短文档块/3-为所有公共API生成完整文档块含参数与返回值/4-为所有函数含私有生成完整文档块/5-文档块必须包含参数返回异常示例和链接通过工具强制检查\n\n2. TODO/FIXME使用频率: 0-不使用TODO或FIXME注释/1-仅在主要缺失功能处添加TODO/2-在每个未完成特性处添加TODO/3-频繁添加TODO和FIXME标记待办事项/4-在几乎所有潜在改进点都插入TODO/5-代码中充斥着TODO FIXME HACK标记\n\n3. 内联注释风格: 0-不写任何内联注释/1-仅在非直观的行末添加解释/2-在复杂逻辑处使用行末注释/3-每个重要步骤前放置单行注释/4-每几行代码就有一行注释形成叙述/5-密集的内联注释几乎形成编码日志\n\n4. 文件头注释: 0-没有文件头注释/1-仅包含文件名与创建者/2-包含文件名作者创建日期/3-包含文件名作者日期与简要描述/4-包含文件名描述作者日期变更日志/5-完整文件头包含版权声明许可描述作者版本变更历史",
+            "createdAt": "2026-05-18T05:50:13.429Z",
+            "branchId": "branch-main",
+            "attachments": [],
+            "citations": [],
+            "searches": []
+          },
+          {
+            "id": "2",
+            "role": "assistant",
+            "text": "抱歉，我没有看到需要审查的代码。请提供具体的代码片段，我会立即从以下4个维度进行审查，并给出简短结论和完整描述：\n\n1. 文档块使用  \n2. TODO/FIXME使用频率  \n3. 内联注释风格  \n4. 文件头注释  \n\n请粘贴代码，谢谢。",
+            "createdAt": "2026-05-18T05:50:13.426Z",
+            "parentId": "1",
+            "branchId": "branch-main",
+            "attachments": [],
+            "citations": [],
+            "searches": []
+          }
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "source": "first-message",
+    "requestedUrl": "https://chat.deepseek.com/",
+    "finalUrl": "https://chat.deepseek.com/a/chat/s/1bec3525-a0a8-4b04-8be4-2aa75c985772",
+    "authoritativeAgentId": "chat",
+    "authoritativeSessionId": "1bec3525-a0a8-4b04-8be4-2aa75c985772",
+    "sessionCreate": null,
+    "generationObservations": [
+      {
+        "endpoint": "/api/v0/chat/completion",
+        "url": "https://chat.deepseek.com/api/v0/chat/completion",
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "outputTokens": 425,
+        "requestModelType": "expert",
+        "requestRefFileIds": []
+      }
+    ],
+    "outputTokensUsed": 425,
+    "settledAfterMs": 15092,
+    "firstBatchSummary": {
+      "captureMode": "generation-stream",
+      "userMessageId": "1",
+      "assistantMessageId": "2",
+      "userPrompt": "你是代码风格审查专家，只关注代码视觉外观。审查4个维度，每个给简短结论+有问题给完整 descriptions：\n\n1. 文档块使用: 0-不使用文档块/1-仅在公共函数上添加一行描述/2-为所有公共API生成简短文档块/3-为所有公共API生成完整文档块含参数与返回值/4-为所有函数含私有生成完整文档块/5-文档块必须包含参数返回异常示例和链接通过工具强制检查\n\n2. TODO/FIXME使用频率: 0-不使用TODO或FIXME注释/1-仅在主要缺失功能处添加TODO/2-在每个未完成特性处添加TODO/3-频繁添加TODO和FIXME标记待办事项/4-在几乎所有潜在改进点都插入TODO/5-代码中充斥着TODO FIXME HACK标记\n\n3. 内联注释风格: 0-不写任何内联注释/1-仅在非直观的行末添加解释/2-在复杂逻辑处使用行末注释/3-每个重要步骤前放置单行注释/4-每几行代码就有一行注释形成叙述/5-密集的内联注释几乎形成编码日志\n\n4. 文件头注释: 0-没有文件头注释/1-仅包含文件名与创建者/2-包含文件名作者创建日期/3-包含文件名作者日期与简要描述/4-包含文件名描述作者日期变更日志/5-完整文件头包含版权声明许可描述作者版本变更历史",
+      "userPromptPreview": "你是代码风格审查专家，只关注代码视觉外观。审查4个维度，每个给简短结论+有问题给完整 descriptions： 1. 文档块使用: 0-不使用文档块/1-仅在公共函数上添加一行描述/2-为…",
+      "assistantSummary": "抱歉，我没有看到需要审查的代码。请提供具体的代码片段，我会立即从以下4个维度进行审查，并给出简短结论和完整描述： 1. 文档块使用 2. TODO/FIXME使用频率 3. 内联注释风格 4. 文件头注释 请粘贴代码，谢谢。",
+      "generationEndpoints": [
+        "/api/v0/chat/completion"
+      ],
+      "completionRequestObserved": true
+    },
+    "transcriptRecovery": {
+      "source": "history_messages",
+      "status": "recovered",
+      "requestUrl": "https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=1bec3525-a0a8-4b04-8be4-2aa75c985772",
+      "responseStatus": 200,
+      "recoveredAt": "2026-05-18T05:50:22.998Z",
+      "attempts": 1,
+      "branchCount": 1,
+      "messageCount": 2,
+      "settled": true
+    },
+    "modeFact": {
+      "sourceLayer": "stored-session",
+      "rawModelType": "expert",
+      "resolvedMode": "expert",
+      "derivedFromLayer": "history-messages-mapped-session"
+    },
+    "lastAssistantTextSource": "generation-stream",
+    "exportProvenance": {
+      "version": 1,
+      "updatedAt": "2026-05-18T05:50:22.999Z",
+      "branches": [
+        {
+          "branchId": "branch-main",
+          "source": "history_messages",
+          "transcriptShape": "history-recovered",
+          "transcriptRecoveryStatus": "recovered",
+          "assistantTextSource": "history_messages",
+          "lastUpdatedBy": "history_messages",
+          "updatedAt": "2026-05-18T05:50:22.999Z",
+          "sourceMessageId": null
+        }
+      ]
+    },
+    "lastKnownActiveBranchId": "branch-main",
+    "lastKnownActiveBranchSource": "first-message",
+    "persistedAt": "2026-05-18T05:50:22.999Z"
+  }
+}

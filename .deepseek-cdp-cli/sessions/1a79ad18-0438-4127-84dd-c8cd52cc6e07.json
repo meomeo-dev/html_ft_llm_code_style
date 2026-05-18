@@ -1,0 +1,117 @@
+{
+  "kind": "deepseek-stored-session",
+  "version": 1,
+  "session": {
+    "id": "1a79ad18-0438-4127-84dd-c8cd52cc6e07",
+    "agentId": "chat",
+    "title": "缩写使用度审查结论",
+    "createdAt": "2026-05-18T05:47:52.296Z",
+    "modeFact": {
+      "sourceLayer": "stored-session",
+      "rawModelType": "expert",
+      "resolvedMode": "expert",
+      "derivedFromLayer": "history-messages-mapped-session"
+    },
+    "branches": [
+      {
+        "id": "branch-main",
+        "sessionId": "1a79ad18-0438-4127-84dd-c8cd52cc6e07",
+        "title": "你是代码风格审查专家，只关注代码的视觉外观。\n\n审查：\n缩写使用度 (Abbre",
+        "createdAt": "2026-05-18T05:47:52.296Z",
+        "messages": [
+          {
+            "id": "1",
+            "role": "user",
+            "text": "你是代码风格审查专家，只关注代码的视觉外观。\n\n审查：\n缩写使用度 (Abbreviation Usage)\n0: 禁止使用任何缩写，所有标识符必须全拼\n1: 极少数通用缩写允许（如 num、msg）\n2: 允许常见领域缩写（如 db、http、api）\n3: 中度使用缩写，代码中常出现（如 conf、ctx、init）\n4: 大量使用简短缩写，长度优先于可读性\n5: 偏好极短缩写，即使影响可读性也在所不惜\n\n审查：0-5光谱方向是否与常规预期相反？通常0=最宽松，但这里0=最严格(禁止缩写)。调整方向还是保留？有无其他问题？给结论和完整 descriptions。",
+            "createdAt": "2026-05-18T05:47:52.296Z",
+            "branchId": "branch-main",
+            "attachments": [],
+            "citations": [],
+            "searches": []
+          },
+          {
+            "id": "2",
+            "role": "assistant",
+            "text": "### 结论\n\n**方向无需调整**。0–5 标度中，**0 表示“缩写使用程度为零”**，即完全禁止缩写，这与指标命名“缩写使用度”天然一致——数值越大，使用缩写的程度越高、限制越宽松。  \n不存在“常规预期相反”的问题，因为这不是“严格度/宽松度”的主观评分，而是客观的使用程度度量。保留当前方向能避免混淆，也符合直觉：0 = 无缩写，5 = 极尽缩写。\n\n### 细节审查\n\n- **层级递进清晰**：0（零容忍） → 1（极少数通用） → 2（领域通用） → 3（中度习惯） → 4（大量缩短） → 5（极短优先），分层合理。\n- **示例恰当**：每一级都给出了该级别允许或典型的缩写词，便于审查者对标。\n- **措辞一致**：所有级别都以“允许/中度/大量/偏好”等词汇描述**缩写使用的程度**，未出现语义跳跃。\n\n### 潜在微调建议（可选）\n\n可对描述稍作润色，使边界更锐利，但不改变原义。以下是建议保留并直接采用的完整描述：\n\n---\n\n**缩写使用度 (Abbreviation Usage)**  \n0 – 禁止使用任何缩写，所有标识符必须为完整单词全拼。  \n1 – 仅允许极少数公认的通用缩写（如 `num`、`msg`）。  \n2 – 允许常见领域缩写（如 `db`、`http`、`api`）。  \n3 – 中度使用缩写，代码中频繁出现习惯性缩短（如 `conf`、`ctx`、`init`）。  \n4 – 大量使用简短缩写，长度优先于可读性。  \n5 – 偏好极短缩写，即使严重影响可读性也在所不惜。\n\n---\n\n**结论：保留原方向，无需反转，以上 descriptions 可直接作为审查标准使用。**",
+            "createdAt": "2026-05-18T05:47:52.291Z",
+            "parentId": "1",
+            "branchId": "branch-main",
+            "attachments": [],
+            "citations": [],
+            "searches": []
+          }
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "source": "first-message",
+    "requestedUrl": "https://chat.deepseek.com/",
+    "finalUrl": "https://chat.deepseek.com/a/chat/s/1a79ad18-0438-4127-84dd-c8cd52cc6e07",
+    "authoritativeAgentId": "chat",
+    "authoritativeSessionId": "1a79ad18-0438-4127-84dd-c8cd52cc6e07",
+    "sessionCreate": null,
+    "generationObservations": [
+      {
+        "endpoint": "/api/v0/chat/completion",
+        "url": "https://chat.deepseek.com/api/v0/chat/completion",
+        "status": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "outputTokens": 613,
+        "requestModelType": "expert",
+        "requestRefFileIds": []
+      }
+    ],
+    "outputTokensUsed": 613,
+    "settledAfterMs": 51843,
+    "firstBatchSummary": {
+      "captureMode": "generation-stream",
+      "userMessageId": "1",
+      "assistantMessageId": "2",
+      "userPrompt": "你是代码风格审查专家，只关注代码的视觉外观。\n\n审查：\n缩写使用度 (Abbreviation Usage)\n0: 禁止使用任何缩写，所有标识符必须全拼\n1: 极少数通用缩写允许（如 num、msg）\n2: 允许常见领域缩写（如 db、http、api）\n3: 中度使用缩写，代码中常出现（如 conf、ctx、init）\n4: 大量使用简短缩写，长度优先于可读性\n5: 偏好极短缩写，即使影响可读性也在所不惜\n\n审查：0-5光谱方向是否与常规预期相反？通常0=最宽松，但这里0=最严格(禁止缩写)。调整方向还是保留？有无其他问题？给结论和完整 descriptions。",
+      "userPromptPreview": "你是代码风格审查专家，只关注代码的视觉外观。 审查： 缩写使用度 (Abbreviation Usage) 0: 禁止使用任何缩写，所有标识符必须全拼 1: 极少数通用缩写允许（如 num、…",
+      "assistantSummary": "### 结论 **方向无需调整**。0–5 标度中，**0 表示“缩写使用程度为零”**，即完全禁止缩写，这与指标命名“缩写使用度”天然一致——数值越大，使用缩写的程度越高、限制越宽松。 不存在“常规预期相反”的问题，因为这不是“严格度/宽松度”的主观评分，而是客观的使用程度度量。保留当前方向能避免混淆，也符合直觉：0 = 无缩写，5 = 极尽缩写。 ### 细节审查 - **层级递进清晰**：0（零容忍） → 1（极少数通用） → 2（领域通用） → 3（中度习惯） →…",
+      "generationEndpoints": [
+        "/api/v0/chat/completion"
+      ],
+      "completionRequestObserved": true
+    },
+    "transcriptRecovery": {
+      "source": "history_messages",
+      "status": "recovered",
+      "requestUrl": "https://chat.deepseek.com/api/v0/chat/history_messages?chat_session_id=1a79ad18-0438-4127-84dd-c8cd52cc6e07",
+      "responseStatus": 200,
+      "recoveredAt": "2026-05-18T05:48:38.708Z",
+      "attempts": 1,
+      "branchCount": 1,
+      "messageCount": 2,
+      "settled": true
+    },
+    "modeFact": {
+      "sourceLayer": "stored-session",
+      "rawModelType": "expert",
+      "resolvedMode": "expert",
+      "derivedFromLayer": "history-messages-mapped-session"
+    },
+    "lastAssistantTextSource": "generation-stream",
+    "exportProvenance": {
+      "version": 1,
+      "updatedAt": "2026-05-18T05:48:38.708Z",
+      "branches": [
+        {
+          "branchId": "branch-main",
+          "source": "history_messages",
+          "transcriptShape": "history-recovered",
+          "transcriptRecoveryStatus": "recovered",
+          "assistantTextSource": "history_messages",
+          "lastUpdatedBy": "history_messages",
+          "updatedAt": "2026-05-18T05:48:38.708Z",
+          "sourceMessageId": null
+        }
+      ]
+    },
+    "lastKnownActiveBranchId": "branch-main",
+    "lastKnownActiveBranchSource": "first-message",
+    "persistedAt": "2026-05-18T05:48:38.708Z"
+  }
+}
