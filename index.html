@@ -696,12 +696,12 @@
                 "category": "testing",
                 "name": "测试覆盖率要求 (Test Coverage Requirement)",
                 "descriptions": [
-                        "无测试要求",
-                        "核心模块有少量测试",
-                        "要求 50% 以上的代码覆盖率",
-                        "要求 80% 代码覆盖率",
-                        "要求 95% 覆盖率，分支覆盖",
-                        "强制 100% 代码覆盖率（含分支、条件），未覆盖禁止合并"
+                        "项目视图中看不到任何测试文件或 test_ 前缀的函数，无断言痕迹",
+                        "仅有一个小型测试文件，内含少量占位测试函数，大多为空或仅有注释",
+                        "测试目录覆盖约半数源码模块，文件中散布着基本测试函数",
+                        "测试目录几乎覆盖所有模块，测试文件与源文件同等大小甚至更大",
+                        "测试文件比源文件更长，每个 if/else 分支都有对应测试函数",
+                        "专用 tests/ 文件夹完美 1:1 镜像 src/，每个公共函数都有对应测试类，文档引用每个分支和边界"
                 ]
         },
         {
@@ -709,12 +709,12 @@
                 "category": "testing",
                 "name": "测试独立性 (Test Independence)",
                 "descriptions": [
-                        "测试可依赖共享状态与执行顺序",
-                        "测试之间不共享可变状态，但可依赖数据库",
-                        "每个测试准备自身数据，但共享不可变配置",
-                        "每个测试完全独立，不依赖外部资源",
-                        "测试严格隔离，使用内存数据库或模拟",
-                        "每个测试运行在完全隔离的沙盒环境，无任何副作用"
+                        "测试文件顶部有共享的 setup() 函数初始化全局变量，测试函数引用全局状态",
+                        "无全局可变状态，但 setUp 方法连接真实数据库，测试间存在顺序依赖注释",
+                        "每个测试文件包含本地 fixture 自行创建数据，INSERT 语句在每个测试函数内可见",
+                        "文件间无共享 fixture，每个测试函数以独立的 Arrange 块创建所有所需对象",
+                        "使用函数级 fixture 装饰器配合内存数据库，连接字符串可见 sqlite://:memory:",
+                        "每个测试函数包裹在沙盒容器中，导入 testcontainers，注释中也不见网络调用"
                 ]
         },
         {
@@ -722,12 +722,12 @@
                 "category": "testing",
                 "name": "断言风格 (Assertion Style)",
                 "descriptions": [
-                        "不使用断言，仅用打印输出判断",
-                        "使用简单的 assert 语句",
-                        "使用框架默认断言（如 assertEquals）",
-                        "使用 BDD 风格断言（如 expect(x).toBe(y)）",
-                        "使用链式匹配器，可读性强（如 should、expect）",
-                        "统一使用声明式断言库，并生成行为说明书"
+                        "屏幕满布 print() 语句配合手动 if 判断，看不到 assert 关键字",
+                        "裸 assert result == 5 散落在测试函数中，失败消息缺失或仅写 wrong",
+                        "断言使用框架方法如 self.assertEqual(a, b)，导入显示 unittest",
+                        "代码行读起来像英文句子：expect(result).to.equal(5)，导入来自 BDD 风格断言库",
+                        "长链式调用如 assertThat(result).isGreaterThan(0).isLessThan(10)，匹配器可见",
+                        "整个测试读起来像规格文档，嵌套 describe/it 块，只有声明式语句无可见代码逻辑"
                 ]
         },
         {
@@ -735,12 +735,12 @@
                 "category": "testing",
                 "name": "模拟与桩使用度 (Mocking / Stubbing Usage)",
                 "descriptions": [
-                        "不使用模拟，测试直接调用真实实现",
-                        "仅在外部服务调用上使用桩",
-                        "对数据库、网络等慢速依赖使用模拟",
-                        "所有单元测试的外部依赖均模拟",
-                        "使用依赖注入与模拟框架精细控制行为",
-                        "严格模拟一切外部边界，测试仅验证代码逻辑"
+                        "导入语句包括真实 HTTP 客户端、数据库驱动，代码中无 mock/stub/fake",
+                        "仅有少数 @patch 装饰器围绕外部 API 调用，其余依赖全为真实文件系统或数据库",
+                        "unittest.mock 导入可见，mock_database = MagicMock() 出现在测试 setup 中",
+                        "每个测试文件顶部都有 @mock.patch 块，服务实例化为 MyService(mock_repo, mock_logger)",
+                        "构造函数注入可见，测试文件用 spec=RealClass 创建 mock，verify(mock).method() 出现",
+                        "unittest.mock 已被接口替换，测试文件导入 FakeRepository、InMemoryQueue，无 Mock() 调用"
                 ]
         },
         {
@@ -748,12 +748,12 @@
                 "category": "performance",
                 "name": "算法效率关注度 (Algorithmic Efficiency Focus)",
                 "descriptions": [
-                        "不关心时间复杂度或空间复杂度",
-                        "对明显 O(n^2) 以上的算法进行优化",
-                        "确保主要流程使用线性或对数级别算法",
-                        "选择已知最优算法，必要时分析复杂度",
-                        "主动分析时间与空间复杂度，并记录",
-                        "严格证明算法复杂度，并确保在最坏情况下的边界"
+                        "三层以上缩进的嵌套循环，注释写 just make it work，无 Big-O 提及",
+                        "深层缩进减少到两层，重构块上方出现 O(n^2) improved to O(n log n) 注释",
+                        "提前返回和 break/continue 可见，热路径无嵌套循环，函数使用 map/filter/reduce 链",
+                        "导入 collections（deque, heapq）或算法库，注释引用算法名称如 Dijkstra 或 quicksort",
+                        "Docstring 以 Complexity: Time O(n), Space O(1) 开头，benchmarks/ 文件夹可见于文件树",
+                        "注释包含形式化 Big-O 推导：T(n) = 2T(n/2) + O(n) => O(n log n)，另有 analysis.md"
                 ]
         },
         {
@@ -761,12 +761,12 @@
                 "category": "performance",
                 "name": "过早优化抑制 (Premature Optimization Avoidance)",
                 "descriptions": [
-                        "随时优化，一开始就追求性能",
-                        "在编码时尽量保持高效，但不过度",
-                        "先写出清晰代码，再识别瓶颈优化",
-                        "明确规定只优化经过剖析的热点路径",
-                        "禁止任何无测量数据的优化，遵循性能分析驱动",
-                        "严格遵循“先正确、再清晰、后优化”原则，违反需说明"
+                        "位运算技巧、循环展开、内联汇编的单行代码，变量名如 x、t，无空白",
+                        "代码密集但可读，偶见 // faster way 注释，微优化如 ++i 替代 i++",
+                        "格式清晰留白充足，注释写 // straightforward implementation，无明显优化尝试",
+                        "profiling/ 目录存在，仅热点区域有注释如 # hotspot identified by cProfile",
+                        "优化代码前必须有 # Benchmark: 2.3s -> 0.8s after change 注释，每次优化配基准文件",
+                        "文件头列出 1. Correct 2. Clear 3. Optimize，优化代码隔离在独立分支或功能开关后"
                 ]
         },
         {
@@ -774,12 +774,12 @@
                 "category": "performance",
                 "name": "资源管理自动性 (Resource Management Automaticity)",
                 "descriptions": [
-                        "手动打开关闭资源，容易泄漏",
-                        "使用 try-finally 确保关闭",
-                        "使用语言提供的 `with` 语句或 using 块",
-                        "采用 RAII 模式或 Disposable 模式",
-                        "所有资源类实现 AutoCloseable 并统一管理",
-                        "资源生命周期由容器或智能指针完全自动管理，禁止手动释放"
+                        "f = open(...) 无对应 close()，malloc 无 free，原始文件描述符可见",
+                        "try: ... finally: f.close() 块可见，函数末尾有显式 dispose() 或 close() 调用",
+                        "with open(...) as f: 块结构，using (var conn = ...) 在 C# 中，整齐缩进的作用域块",
+                        "类有 __enter__/__exit__ 或 Dispose() 方法，implements AutoCloseable 可见",
+                        "每个资源持有类签名显示 AutoCloseable 或 IDisposable，@Cleanup 注解，try-with-resources 遍布",
+                        "无手动资源处理可见，智能指针（unique_ptr, Arc）占主导，defer 关键字或 Drop trait 在所有类型上实现"
                 ]
         },
         {
@@ -787,12 +787,12 @@
                 "category": "performance",
                 "name": "内存管理谨慎度 (Memory Management Care)",
                 "descriptions": [
-                        "随意分配内存，不关心回收",
-                        "避免明显的大对象长期持有",
-                        "注意集合初始化大小，防止频繁扩容",
-                        "主动使用弱引用、缓存策略管理内存",
-                        "使用内存分析工具监控，消除泄漏",
-                        "严格防范内存泄漏与过度分配，内存占用可控"
+                        "模块级别分配大数组，全局变量持有大列表，无 del 或 null 赋值",
+                        "大对象使用后偶见 = None 赋值，长循环中有 # free memory 注释",
+                        "集合初始化包含大小提示：new ArrayList<>(1000), vec::with_capacity(1024)",
+                        "WeakReference, WeakMap, @Cache(maxSize=100) 注解可见，函数上有 lru_cache",
+                        "内存分析器导入如 memory_profiler 或 heaptrack，@profile 装饰器，.gitignore 中有 *.hprof",
+                        "无 new 或 malloc 在工厂外出现，RAII 包装器遍布，CI 管道有 memcheck 阶段"
                 ]
         },
         {
