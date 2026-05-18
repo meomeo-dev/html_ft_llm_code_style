@@ -1,0 +1,281 @@
+回复ID: DefensiveAssertionUsage-20260518-001
+
+# 维度审查：防御性断言使用度 (Defensive Assertion Usage)
+
+## 一、维度名称审查
+
+### 1.1 名称准确性判断
+
+**`[信号词]`** **维度名称（Dimension Name）** “防御性断言使用度”基本准确地表达了该维度意图测量的代码外观特征，但存在一定的歧义风险。
+
+“断言”（Assertion）作为一种**运行时检查（Runtime Check）**机制，在学术文献和工业实践中被广泛定义为用于验证程序假设的布尔表达式，通常出现在函数入口（**前置条件 / Precondition**）、出口（**后置条件 / Postcondition**）以及类级别（**不变量 / Invariant**）[reference:0]。防御性编程文献明确指出，断言是“验证函数前置条件和后置条件、参数值、返回值以及循环不变量”的核心手段[reference:1]。
+
+然而，“防御性”（Defensive）一词在软件工程语境中存在两种不同含义：
+- **狭义防御性断言**：指代码中显式的 `assert`、`require`、`ensure` 等关键字，用于在运行时捕获不应发生的异常条件。
+- **广义防御性编程**：包含空值检查、异常抛出、错误码返回等多种策略，可能导致与 **空值处理维度（Null Handling）** 或 **异常策略维度（Exception Strategy）** 产生边界模糊。
+
+**结论**：名称“防御性断言使用度”整体准确，但建议在量表描述中明确聚焦于“肉眼可见的 `assert` / `require` / `ensure` / `invariant` 等关键字的出现频次和位置”，以避免与其他错误处理维度混淆。
+
+---
+
+## 二、0-5 档单调递进性审查
+
+### 2.1 递进逻辑分析
+
+`[信号词]` **等级量表（Rating Scale）** 的 0-5 档在**视觉可见度（Visual Visibility）**这一核心维度上基本实现了单调递进：
+
+| 等级 | 核心视觉信号 | 递进逻辑 |
+|------|-------------|---------|
+| 0 | 函数体内**完全看不到**任何断言关键字 | 基线——零可见度 |
+| 1 | **只有少量函数入口处**能看到对参数是否为 null 的快速检查语句 | 断言的萌芽——仅在入口处零星出现 |
+| 2 | **公共方法的开头常常出现**条件抛错或断言宏，像门卫一样立在函数顶部 | 断言在入口处规律化——形成**守卫子句（Guard Clauses）**模式 |
+| 3 | **几乎每个函数开头和结尾**都能看到断言语句，函数被断言包裹 | 断言从入口扩展到出口——形成**前/后置条件对（Pre/Post-condition Pair）** |
+| 4 | 代码中夹杂着大量断言调用，**不仅在函数边界，在循环和条件分支内部**也频频出现 | 断言从边界渗透到内部——涵盖**循环不变量（Loop Invariants）**和分支内检查 |
+| 5 | 断言语句遍布整个文件，**几乎每几行就有一个 assert**，代码看起来被检查语句占据了许多篇幅 | 断言密度达到极高水平 |
+
+从 0 到 4 的递进逻辑清晰：**零可见 → 入口零星 → 入口规律化 → 入口+出口全覆盖 → 边界+内部全覆盖**。这一递进遵循“断言出现位置从函数边界向函数体内部逐步渗透”的单一维度。
+
+### 2.2 等级 5 的问题：断言密度 vs 断言噪音
+
+`[信号词]` **等级 5（Level 5）**——“几乎每几行就有一个 assert”——存在值得审视的问题。
+
+**问题一：此密度是否仍然是“防御性断言”的更高等级？**
+
+学术研究将**断言密度（Assertion Density）**定义为每千行代码中的断言数量，并发现断言密度与缺陷密度之间存在统计显著的负相关关系[reference:2][reference:3]。Microsoft Research 的实证研究表明，每千行代码中少于约 10-25 个断言的模块，其发布后缺陷率显著高于断言密度更高的模块[reference:4]。换言之，较高的断言密度通常与更好的代码质量相关。
+
+但“每几行一个 assert”意味着断言密度达到每千行代码 100+ 甚至 200+ 个断言——远超上述研究中观察到的有效范围上限（约 50-100 个断言/KLOC）[reference:5]。在此极端密度下，社区观点出现了分歧：
+
+- **正面观点**：Firefox 浏览器等大型项目中，10-20% 的代码是断言，用于检查其余 80-90% 的代码是否正确工作[reference:6]。TigerBeetle 的编码规范要求每个函数至少 2 个断言[reference:7]。
+- **负面观点**：“Shotgun-spraying assertions in the code is not a good strategy in general”（在代码中像霰弹枪一样喷洒断言通常不是一个好策略）[reference:8]。过度使用断言会使“真正的代码被检查代码淹没”（hard to find the real code from all the checking code）[reference:9]。另有观点认为，过多断言会使调试变得非常烦人[reference:10]。
+
+**问题二：等级 5 是否引入了“可读性”或“断言噪音”维度？**
+
+“每几行一个 assert”在一定程度上确实跨越到了**可读性（Readability）**维度。当断言密度极高时，评估者可能不自觉地从“防御性使用度高”滑向“代码被断言淹没、难以阅读”。代码审查工具 CodeScene 甚至将连续多行的断言语句视为代码健康度下降的信号[reference:11]。
+
+**建议**：等级 5 的语义应修正为“断言无处不在，涵盖函数边界、循环体和各种分支路径，形成密集的检查网络”，而不强调“占据了许多篇幅”这一带有负面暗示（可读性维度）的表述。
+
+---
+
+## 三、跨维度内容识别
+
+### 3.1 已识别的跨维度风险点
+
+| 位置 | 原文内容 | 风险类型 | 说明 |
+|------|---------|---------|------|
+| 等级 1 | “对参数是否为 null 的快速检查语句” | **空值处理维度（Null Handling）** | 过于聚焦 null 检查，可能被误判为“空值处理”而非“防御性断言” |
+| 等级 2 | “条件抛错或断言宏” | **异常策略维度（Exception Strategy）** | “抛错”属于异常处理策略，不属于断言的外观特征 |
+| 等级 5 | “代码看起来被检查语句占据了许多篇幅” | **可读性维度（Readability）** / **断言噪音（Assertion Noise）** | 引入了对断言“过多”的主观评价 |
+
+### 3.2 空值检查与断言的边界
+
+等级 1 和等级 2 中涉及的“参数是否为 null”和“条件抛错”，需要警惕与以下维度的边界模糊：
+- **空值处理（Null Handling）**：专门评估 `if (x == null) return/throw` 模式。
+- **异常策略（Exception Strategy）**：专门评估 `throw new ...Exception` 的种类和层级。
+- **防御性断言（Defensive Assertion）**：应聚焦于 `assert`、`require`、`ensure`、`invariant`、`check` 等**断言关键字**的出现模式和密度。
+
+本维度应统一使用“断言语句/断言关键字”的视觉信号，而非“null 检查”或“抛错”的具体语义。
+
+---
+
+## 四、替代文案（6 条）
+
+以下是建议的 6 条替代文案。**每条文案的设计目标均为“从代码外观直接观察即可判断”，避免引入正确性质量评价、断言噪音评价、异常策略偏好或语言库偏好。**
+
+> **说明**：以下文案中，第 3 级和第 4 级的递进关系（从“仅入口”到“入口+循环”）参考了 Rosenblum (1995) 对断言使用的经典分类——断言应放置在“函数前置条件、后置条件、循环不变量和中间状态”[reference:12]。第 5 级的“极高密度”表述参考了 Kudrjavets et al. 对断言密度的定义[reference:13]以及 Firefox 项目中 10-20% 代码为断言的现象[reference:14]。其余等级（0、1、2、5 的具体措辞）为基于逻辑推演的推断建议。
+
+---
+
+**等级 0（Level 0）**
+
+> 函数体直接从业务逻辑开始，整个文件中**看不到任何 `assert`、`require`、`ensure`、`invariant` 或类似断言关键字**，也看不到明显的断言宏调用。
+
+*设计意图*：用否定式描述“零断言”的视觉状态，不涉及正确性判断（如“缺少防御性编程”）。
+
+---
+
+**等级 1（Level 1）**
+
+> 断言关键字**零星出现在少数函数的入口处**，通常是针对个别关键参数的前置条件检查，大部分函数体内部没有任何断言。
+
+*设计意图*：强调“零星”和“入口处”这两个视觉特征，避免绑定到 null 检查这一具体语义。
+
+---
+
+**等级 2（Level 2）**
+
+> **公共方法/导出函数的开头频繁出现断言语句**，形成明显的“守卫层”（第一段代码就是断言块），但函数体中部和尾部基本看不到断言。
+
+*设计意图*：用“守卫层”和“开头”描述入口断言密集的视觉模式，不预设具体关键字语法（`assert` vs `require`）。
+
+---
+
+**等级 3（Level 3）**
+
+> **函数入口和出口同时出现断言**——开头有前置条件检查，结尾有后置条件验证。部分关键循环体内也能看到不变量断言，断言已形成环绕函数的结构化框架。
+
+*设计意图*：用“入口+出口”、“结构化框架”描述**前/后置条件（Pre/Post-condition）**成对出现的视觉模式。
+
+---
+
+**等级 4（Level 4）**
+
+> 断言不仅覆盖函数边界，还**深度嵌入条件分支和循环体内部**。`if-else` 的各分支中常能看到独立的断言，循环体内频繁出现不变量检查，断言在代码中形成一个密集但仍有空隙的检查网络。
+
+*设计意图*：强调断言从“边界”渗透到“内部”（分支、循环），但注意“密集但仍有空隙”暗示未达到等级 5 的极端密度。
+
+---
+
+**等级 5（Level 5）**
+
+> 断言语句**遍布整个文件，几乎所有非空行之间都能看到断言**。不仅每个函数被前置/后置条件包裹，循环和分支内部也布满检查，代码的视觉印象是“检查代码与业务逻辑交错缠绕、几乎同等密集”。
+
+*设计意图*：强调极端密度下的“交错缠绕”视觉印象，但不引入“占据篇幅”（暗示可读性受损）等负面评价。
+
+---
+
+## 五、建议来源说明
+
+### 5.1 基于公开资料的建议
+
+| 建议内容 | 依据来源 |
+|---------|---------|
+| 断言应出现在前置条件、后置条件、循环不变量位置 | Rosenblum (1995) 经典分类[reference:15]；Eiffel DbC 规范[reference:16][reference:17] |
+| 断言密度与缺陷密度负相关（10-25 asserts/KLOC 为有效区间，50-100 为上限） | Microsoft Research 实证研究[reference:18][reference:19] |
+| 极高断言密度（10-20% 代码量为断言）在 Firefox 等大型项目中存在 | 防御性编程教学材料[reference:20] |
+| 断言密度作为安全关键代码的强制指标（每函数至少 2 个断言） | NASA Power of Ten 规则[reference:21]；TigerBeetle 编码规范[reference:22] |
+| 过度使用断言导致代码可读性下降 | 社区讨论[reference:23][reference:24] |
+
+### 5.2 基于推断的建议
+
+| 建议内容 | 推断依据 |
+|---------|---------|
+| 6 条替代文案的具体措辞（如“零星出现”、“守卫层”、“交错缠绕”） | 基于量表的递进逻辑和视觉描述原则进行推导，未在公开资料中找到完全一致的表述 |
+| 将等级 1 的“null 检查”替换为“前置条件检查” | 推断目的为去除空值处理维度的干扰，保持维度单一性 |
+| 将等级 2 的“条件抛错”替换为“守卫层” | 推断目的为去除异常策略维度的干扰，聚焦断言外观 |
+| 等级 5 不强调“占据篇幅” | 推断目的为避免引入可读性维度的负面评价 |
+
+Citations:
+- [reference:0] Exact page | I2E: Design by Contract and Assertions | https://www.eiffel.org/doc/eiffel/I2E-_Design_by_Contract_and_Assertions
+- [reference:1] Exact page | The Power of Ten | https://www.spinroot.com/p10/rule5.html
+- [reference:2] Structured reference | TOOL_OPEN#20 | no precise page mapping recovered in text output
+- [reference:3] Exact page | Assessing the Relationship between Software Assertions and Faults: An Empirical Investigation | https://scite.ai/reports/assessing-the-relationship-between-software-ML5z2m
+- [reference:4] Exact page | 原创 The use of assertions | https://mbb.eet-china.com/blog/3671694-379571.html
+- [reference:5] Exact page | 原创 The use of assertions | https://mbb.eet-china.com/blog/3671694-379571.html
+- [reference:6] Exact page | Notebook on nbviewer | https://nbviewer.org/github/rochelleterman/python-for-everything/blob/2015-08/day_1/08-defensive.ipynb
+- [reference:7] Exact page | TigerStyle Guidelines | tigerbeetle/tigerbeetle | DeepWiki | https://deepwiki.com/tigerbeetle/tigerbeetle/5.5-tigerstyle-guidelines
+- [reference:8] Exact page | Loading… | https://worker-news.deno.dev:443/item?id=12093005
+- [reference:9] Exact page | FreeBSD Mail Archives | https://mail-archive.freebsd.org/cgi/getmsg.cgi?fetch=855046+0+archive/1996/freebsd-hackers/19961103.freebsd-hackers
+- [reference:10] Search result set | query="assertion density" "code smell" defensive | candidates=33
+  candidate 1: [PDF] On the Relation of Test Smells to Software Code Quality | Semantic Scholar | https://www.semanticscholar.org/paper/On-the-Relation-of-Test-Smells-to-Software-Code-Spadini-Palomba/b05bd4c06551c0a15264c97ef6b95bd3349e1851
+  candidate 2: [PDF] Revisiting Assert Use in GitHub Projects | Semantic Scholar | https://www.semanticscholar.org/paper/Revisiting-Assert-Use-in-GitHub-Projects-Kochhar-Lo/f34cb9e9daace989b7d9cfec515ee30ecbade142
+  candidate 3: [PDF] What Do the Asserts in a Unit Test Tell Us about Code Quality? A Study on Open Source and Industrial Projects | Semantic Scholar | https://www.semanticscholar.org/paper/What-Do-the-Asserts-in-a-Unit-Test-Tell-Us-about-A-Aniche-Oliva/5f298d3fe008186c2f20c9816da2bcf62dd4aa5f?sort=is-influential
+  candidate 4: [Solved] Assertion (A): Rubrics are scoring guides that describe leve | https://testbook.com/question-answer/assertion-a-rubrics-are-scoring-guides-that-des--69e3448daab82e25bda53cac
+  candidate 5: § 137.09 DISCHARGING FIREARMS. | https://codelibrary.amlegal.com/codes/terracepark/latest/terracepark_oh/0-0-0-19799#JD_137.09
+  ... 28 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query="assertion density" "code smell" defensive | candidates=33
+  candidate 1: [PDF] On the Relation of Test Smells to Software Code Quality | Semantic Scholar | https://www.semanticscholar.org/paper/On-the-Relation-of-Test-Smells-to-Software-Code-Spadini-Palomba/b05bd4c06551c0a15264c97ef6b95bd3349e1851
+  candidate 2: [PDF] Revisiting Assert Use in GitHub Projects | Semantic Scholar | https://www.semanticscholar.org/paper/Revisiting-Assert-Use-in-GitHub-Projects-Kochhar-Lo/f34cb9e9daace989b7d9cfec515ee30ecbade142
+  candidate 3: [PDF] What Do the Asserts in a Unit Test Tell Us about Code Quality? A Study on Open Source and Industrial Projects | Semantic Scholar | https://www.semanticscholar.org/paper/What-Do-the-Asserts-in-a-Unit-Test-Tell-Us-about-A-Aniche-Oliva/5f298d3fe008186c2f20c9816da2bcf62dd4aa5f?sort=is-influential
+  candidate 4: [Solved] Assertion (A): Rubrics are scoring guides that describe leve | https://testbook.com/question-answer/assertion-a-rubrics-are-scoring-guides-that-des--69e3448daab82e25bda53cac
+  candidate 5: § 137.09 DISCHARGING FIREARMS. | https://codelibrary.amlegal.com/codes/terracepark/latest/terracepark_oh/0-0-0-19799#JD_137.09
+  ... 28 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Search result set | query="assertion density" "code smell" defensive | candidates=33
+  candidate 1: [PDF] On the Relation of Test Smells to Software Code Quality | Semantic Scholar | https://www.semanticscholar.org/paper/On-the-Relation-of-Test-Smells-to-Software-Code-Spadini-Palomba/b05bd4c06551c0a15264c97ef6b95bd3349e1851
+  candidate 2: [PDF] Revisiting Assert Use in GitHub Projects | Semantic Scholar | https://www.semanticscholar.org/paper/Revisiting-Assert-Use-in-GitHub-Projects-Kochhar-Lo/f34cb9e9daace989b7d9cfec515ee30ecbade142
+  candidate 3: [PDF] What Do the Asserts in a Unit Test Tell Us about Code Quality? A Study on Open Source and Industrial Projects | Semantic Scholar | https://www.semanticscholar.org/paper/What-Do-the-Asserts-in-a-Unit-Test-Tell-Us-about-A-Aniche-Oliva/5f298d3fe008186c2f20c9816da2bcf62dd4aa5f?sort=is-influential
+  candidate 4: [Solved] Assertion (A): Rubrics are scoring guides that describe leve | https://testbook.com/question-answer/assertion-a-rubrics-are-scoring-guides-that-des--69e3448daab82e25bda53cac
+  candidate 5: § 137.09 DISCHARGING FIREARMS. | https://codelibrary.amlegal.com/codes/terracepark/latest/terracepark_oh/0-0-0-19799#JD_137.09
+  ... 28 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Exact page | Assessing the Relationship between Software Assertions and Faults: An Empirical Investigation | https://scite.ai/reports/assessing-the-relationship-between-software-ML5z2m
+- [reference:14] Exact page | Notebook on nbviewer | https://nbviewer.org/github/rochelleterman/python-for-everything/blob/2015-08/day_1/08-defensive.ipynb
+- [reference:15] Search result set | query="assertion density" "code smell" defensive | candidates=33
+  candidate 1: [PDF] On the Relation of Test Smells to Software Code Quality | Semantic Scholar | https://www.semanticscholar.org/paper/On-the-Relation-of-Test-Smells-to-Software-Code-Spadini-Palomba/b05bd4c06551c0a15264c97ef6b95bd3349e1851
+  candidate 2: [PDF] Revisiting Assert Use in GitHub Projects | Semantic Scholar | https://www.semanticscholar.org/paper/Revisiting-Assert-Use-in-GitHub-Projects-Kochhar-Lo/f34cb9e9daace989b7d9cfec515ee30ecbade142
+  candidate 3: [PDF] What Do the Asserts in a Unit Test Tell Us about Code Quality? A Study on Open Source and Industrial Projects | Semantic Scholar | https://www.semanticscholar.org/paper/What-Do-the-Asserts-in-a-Unit-Test-Tell-Us-about-A-Aniche-Oliva/5f298d3fe008186c2f20c9816da2bcf62dd4aa5f?sort=is-influential
+  candidate 4: [Solved] Assertion (A): Rubrics are scoring guides that describe leve | https://testbook.com/question-answer/assertion-a-rubrics-are-scoring-guides-that-des--69e3448daab82e25bda53cac
+  candidate 5: § 137.09 DISCHARGING FIREARMS. | https://codelibrary.amlegal.com/codes/terracepark/latest/terracepark_oh/0-0-0-19799#JD_137.09
+  ... 28 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Exact page | I2E: Design by Contract and Assertions | https://www.eiffel.org/doc/eiffel/I2E-_Design_by_Contract_and_Assertions
+- [reference:17] Exact page | ET: Design by Contract (tm), Assertions and Exceptions | https://www.eiffel.org/doc/eiffel/ET-_Design_by_Contract_%28tm%29%2C_Assertions_and_Exceptions
+- [reference:18] Exact page | 原创 The use of assertions | https://mbb.eet-china.com/blog/3671694-379571.html
+- [reference:19] Structured reference | TOOL_OPEN#20 | no precise page mapping recovered in text output
+- [reference:20] Exact page | Notebook on nbviewer | https://nbviewer.org/github/rochelleterman/python-for-everything/blob/2015-08/day_1/08-defensive.ipynb
+- [reference:21] Exact page | The Power of Ten | https://www.spinroot.com/p10/rule5.html
+- [reference:22] Exact page | TigerStyle Guidelines | tigerbeetle/tigerbeetle | DeepWiki | https://deepwiki.com/tigerbeetle/tigerbeetle/5.5-tigerstyle-guidelines
+- [reference:23] Exact page | FreeBSD Mail Archives | https://mail-archive.freebsd.org/cgi/getmsg.cgi?fetch=855046+0+archive/1996/freebsd-hackers/19961103.freebsd-hackers
+- [reference:24] Exact page | Loading… | https://worker-news.deno.dev:443/item?id=12093005
+- [citation] [PATCH] D147752: [GuardUtils] Add asserts about loop varying widenable conditions | https://lists.llvm.org/pipermail/llvm-commits/Week-of-Mon-20230403/1144543.html
+- [citation] [PDF] Assert Use and Defectiveness in Industrial Code | Semantic Scholar | https://www.semanticscholar.org/paper/Assert-Use-and-Defectiveness-in-Industrial-Code-Counsell-Hall/b26ae92be034e58c871c11f0d84ed327946e7bf0
+- [citation] 106 I. LAZĂR, B. PÂRV, | https://www.yumpu.com/en/document/view/26823243/professor-florian-mircea-boian-at-his-sixties-studia/105
+- [citation] 3.1 Guarding Assumptions with Assertions | https://www.cs.odu.edu/~zeil/cs333/sum16/Public/defensive/defensive__pages.html
+- [citation] 6.3 Loop Statements | https://bml.mimuw.edu.pl/Loop-Statements.html#Loop-Statements
+- [citation] 6.3 Problem Solving: Assertions and Loop Invariants | https://www.isa.uniovi.es/docencia/TiempoReal/Recursos/textbook/aps6-3.htm#apsp66
+- [citation] 78 / Best Kept Secrets of | https://www.yumpu.com/en/document/view/19324446/code-review-at-cisco-systems-smartbear-support/16
+- [citation] 8 DESIGN BY CONTRACT TM , ASSERTIONS, EXCEPTIONS | https://archive.eiffel.com/doc/online/eiffel50/intro/language/tutorial-09.html
+- [citation] 第七章软件结构的健壮性——断言与防御式编程 | https://blog.csdn.net/qq_37549266/article/details/80739980
+- [citation] 防御性编程：C++契约式设计实践 | https://blog.csdn.net/2501_93395246/article/details/152297734
+- [citation] 内容比较 | https://edfi.atlassian.net/wiki/pages/diffpages.action?pageId=43319310&originalId=34603084
+- [citation] 评审技术在高质量软件开发中的应用分析（下） | http://www.51testing.com/mobile/view.php?itemid=250034&page=2
+- [citation] 如何量化代码的可维护性 | https://javaguidepro.com/blog/ru-he-liang-hua-dai-ma-de-ke-wei-hu-xing/#%E4%BB%A3%E7%A0%81%E9%87%8D%E5%A4%8D%E7%8E%87
+- [citation] 软件构造 6-3 Assertions and Defensive Programming | https://blog.csdn.net/weixin_43172803/article/details/106768920
+- [citation] 谈谈assert | https://blog.csdn.net/timeexceed/article/details/24675127
+- [citation] 原创 The use of assertions | https://mbb.eet-china.com/blog/3671694-379378.html
+- [citation] A couple more examples of working backwards | https://www.cse.psu.edu/~dvl/class/121a/lec.7.html
+- [citation] ari/cqas - Git - ari.lt: The for gay yo of ari.lt (accounts are manually reviewed) | https://git.ari.lt/ari/cqas/blame/commit/1c10dc33de13fc67f1e064fd7d9e5ef10d775679/doc/md/analysis-guide.md
+- [citation] Assertion Reason | https://rrb.iitk.ac.in/sathee-railway-exams/student-corner/topic-wise-practice/reasoning/assertion-reason/
+- [citation] Assertion-Based Design - Hardcover | https://www.zvab.com/9781402074981/Assertion-Based-Design-Foster-Harry-Krolnik-1402074980/plp
+- [citation] Assessing the Relationship between Software Assertions and ... | https://fliphtml5.com/goao/sexk/Assessing_the_Relationship_between_Software_Assertions_and_.../3/
+- [citation] Assessing the Relationship between Software Assertions and ... | https://fliphtml5.com/goao/sexk/Assessing_the_Relationship_between_Software_Assertions_and_.../7/
+- [citation] Assessing the Relationship between Software Assertions and Faults: An Empirical Investigation | https://doi.org/10.1109/issre.2006.14
+- [citation] Best Kept Secrets of Peer Code Review (.pdf) - SmartBear | https://www.yumpu.com/en/document/view/19324443/best-kept-secrets-of-peer-code-review-pdf-smartbear/76
+- [citation] Code inspection: Possibly unintended modification inside conditional invocation | JetBrains Rider | https://www.jetbrains.com/help/rider/2025.3/PossiblyUnintendedSideEffectsInsideConditionalInvocation.html?Code_Analysis__Configuring_Warnings
+- [citation] Code Quality Tracking | Trends Over Absolutes · GitScrum Docs | https://docs.gitscrum.com/en/best-practices/code-quality-tracking
+- [citation] Code Smell 312 - Too Many Asserts | https://dev.to/mcsee/code-smell-312-too-many-asserts-1lej
+- [citation] Code Smell 312 - You Put Multiple Assertions in One Test Making Failures Hard to Analyze | https://itsfoss.gitlab.io/post/code-smell-312---you-put-multiple-assertions-in-one-test-making-failures-hard-to-analyze/
+- [citation] Code Smell 312 - You Put Multiple Assertions in One Test, Making Failures Hard to Analyze | https://sia.hackernoon.com/code-smell-312-you-put-multiple-assertions-in-one-test-making-failures-hard-to-analyze
+- [citation] Code Smell 312 - You Put Multiple Assertions in One Test, Making Failures Hard to Analyze | HackerNoon | https://hackernoon.com/lite/code-smell-312-you-put-multiple-assertions-in-one-test-making-failures-hard-to-analyze?ref=hackernoon
+- [citation] Coding Techniques | https://gl.univ-nantes.io/construction/slides/coding.html#/
+- [citation] Collaborator User's and Administrator's Guide | Manualzz | https://manualzz.com/doc/o/1co3sy/smartbear-collaborator-user-s-and-administrator-s-guide-metrics--analysis#page687
+- [citation] contracts 0.1.1 | https://docs.rs/crate/contracts/0.1.1/source/README.md
+- [citation] Control structures | http://viper.ethz.ch/tutorial/statements-control.html
+- [citation] cqas/doc/md/analysis-guide.md 位于 32fa0c3bf199fc3b67f11e5e260fb9250c615a29 | https://git.ari.lt/ari/cqas/src/commit/32fa0c3bf199fc3b67f11e5e260fb9250c615a29/doc/md/analysis-guide.md
+- [citation] CRV2 MetricsCodeRev | https://wiki.owasp.org/index.php/CRV2_MetricsCodeRev
+- [citation] CSC/ECE 517 Fall 2007/wiki3 1 vb | https://wiki.expertiza.ncsu.edu/index.php?title=CSC/ECE_517_Fall_2007/wiki3_1_vb&direction=prev&oldid=9529
+- [citation] Dealing with conditional verification logic using guard assertion | https://softwareengineering.stackexchange.com/questions/312065/dealing-with-conditional-verification-logic-using-guard-assertion?answertab=votes#tab-top
+- [citation] Defensive Programming¶ | https://nbviewer.org/github/elliewix/2016-uiuc-swc/blob/gh-pages/python/08-defensive.html
+- [citation] Design By Contract - an overview | https://www.sciencedirect.com/topics/computer-science/design-by-contract
+- [citation] Difference between revisions of "Code Review Metrics" | https://wiki.owasp.org/index.php?title=Code_Review_Metrics&diff=next&oldid=33134
+- [citation] FenixEdu™ | https://fenix.tecnico.ulisboa.pt/disciplinas/ESof9645/2013-2014/2-semestre/ver-post/aula-06-construcao-de-software-iv-ae1
+- [citation] Follow Your Nose – Which Code Smells are Worth Chasing? | https://ar5iv.labs.arxiv.org/html/2103.01861
+- [citation] How to Think Like a Computer Scientist: Interactive Edition | https://blog.runestone.academy/beta/checking-assumptions-with-assert.html#ac_assert_1
+- [citation] Implement Defensive Programming | https://www.oreilly.com/library/view/implement-defensive-programming/9781098172701/ch01.html
+- [citation] Javiva: a tool for visualizing and validating student-written Java programs: ACM SIGCSE Bulletin: Vol 33, No 1 | https://dl.acm.org/doi/abs/10.1145/366413.364535#core-collateral-purchase-access
+- [citation] LARA – Lab for Automated Reasoning and Analysis - | https://lara.epfl.ch/w/sav08/summary_of_hoare_logic?do=diff&rev2%5B0%5D=1204660078&rev2%5B1%5D=1204665025&difftype=sidebyside
+- [citation] Learn 5 defensive programming techniques from experts | TechTarget | https://www.techtarget.com/searchsoftwarequality/feature/Learn-5-defensive-programming-techniques-from-experts
+- [citation] Loading… | https://news.workers.tools/item?id=924972
+- [citation] Making the Case for Assertion Checking Wrappers | https://people.cs.vt.edu/~edwards/RESOLVE2002/proceedings/Edwards.html
+- [citation] Notebook on nbviewer | https://nbviewer.org/format/slides/github/uds-se/fuzzingbook/blob/parser/notebooks/DynamicInvariants.ipynb
+- [citation] Program Correctness | https://w3.cs.jmu.edu/bernstdh/web/common/lectures/summary_correctness_introduction.php
+- [citation] Programming with Python: Defensive Programming | https://kb.nikhef.nl/computing-course/python-novice/instructor/10-defensive.html
+- [citation] Re: [TDD] Design by contract | https://groups.io/g/testdrivendevelopment/message/4386
+- [citation] Re: [XP] Test Objectives (was: Re: Unit Test Challenge II) | https://groups.io/g/extremeprogramming/message/46677
+- [citation] Revision 28ebef56-1060-4b90-821a-b57a1e57d5c6 | https://softwareengineering.stackexchange.com/revisions/28ebef56-1060-4b90-821a-b57a1e57d5c6/view-source
+- [citation] Revision 41d3ad6e-2ebd-4a65-a528-3382b14c8433 | https://softwareengineering.stackexchange.com/revisions/41d3ad6e-2ebd-4a65-a528-3382b14c8433/view-source
+- [citation] Revision 5e0034fb-ae05-410a-9144-ed029c932afe | https://softwareengineering.stackexchange.com/revisions/5e0034fb-ae05-410a-9144-ed029c932afe/view-source
+- [citation] Revision 83c1e16b-5f31-484c-954d-0c26608a52c0 | https://softwareengineering.stackexchange.com/revisions/83c1e16b-5f31-484c-954d-0c26608a52c0/view-source
+- [citation] Revision ac4b36cc-8ef4-4a23-a4f2-c59915597464 | https://softwareengineering.stackexchange.com/revisions/ac4b36cc-8ef4-4a23-a4f2-c59915597464/view-source
+- [citation] Revisions to Dealing with conditional verification logic using guard assertion | https://softwareengineering.stackexchange.com/posts/312065/revisions
+- [citation] Revisions to Is there a reason to not use a guard check using params instead of singular checks? | https://softwareengineering.stackexchange.com/posts/434328/revisions
+- [citation] rsyslog | https://github-mirror.rsyslog.com/rsyslog/rsyslog/blame/commit/bf85e2a92d454f57e880db941ce4f48cb825695f/doc/source/development/coding_practices/externalized_helper_contracts.rst
+- [citation] rustqual 0.4.3 | https://docs.rs/crate/rustqual/0.4.3
+- [citation] SE450: Homework [2003/02/10] | https://condor.depaul.edu/mwright1/se450/lectures/class-06-023.html
+- [citation] Self-framing assertions | http://viper.ethz.ch/tutorial/permissions-self-framing.html
+- [citation] sonarqube笔记之--代码注释行的量度 | https://blog.csdn.net/jackyrongvip/article/details/84526189
+- [citation] source: CIVL/branches/contracts/examples/loop_invariants/notes@ 4581 | https://vsl.cis.udel.edu/trac/civl/browser/CIVL/branches/contracts/examples/loop_invariants/notes?rev=4581
+- [citation] Testing Standards | https://edfi.atlassian.net/wiki/pages/viewpage.action?pageId=20880756&navigatingVersions=true
+- [citation] TestSmells in a Nutshell | https://scg.unibe.ch/wiki/alumni/stefanreichhart/testsmells/testsmellsinanutshell?_s=NCTwnh819uOaazSK&_k=ArydNRUP&_n&25
+- [citation] The Design by Contract Specification Language | https://infomall.org/sites/dsc/storage1/c3/shared/project/pss_soft/packages/jtest/help/dbc3.htm#998202
+- [citation] The specific bug is that by spreading your ty... — DEV Community | https://dev.to/aminmansuri/comment/g8in
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 86e7fee7-14ad-4ea6-beb3-b217fd795b8e

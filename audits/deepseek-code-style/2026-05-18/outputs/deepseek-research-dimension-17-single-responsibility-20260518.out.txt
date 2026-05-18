@@ -1,0 +1,213 @@
+**回复ID: SRPVisualScaleReview-20260518-001**
+
+## 1. 概述：**单一职责原则（Single Responsibility Principle）的外观观察模式**
+
+经由多轮检索与交叉比对，从主流设计原则资料、代码审查实践、静态分析指标以及过度拆分反例四个方向提取了与“屏幕可见外观”相关的信号。核心发现概括为以下关键词结构：**肉眼可辨识度（Naked-eye Identifiability）**、**块边界信号（Block Boundary Signal）**、**命名体量比（Name-to-body Ratio）**、**空行语义密度（Whitespace Semantic Density）**、**异质块可见性（Heterogeneous Block Visibility）**。
+
+以下按维度逐一呈现搜索结果与评估，不涉及架构优劣、业务正确性或工程成熟度。
+
+---
+
+## 2. 各搜索方向的核心发现
+
+### 2.1 SRP 在代码层的外观线索
+
+微软官方文档将大函数定义为“膨胀物”（bloater），明确列出可肉眼观察的指标：超过 30 行即产生异味，80 行几乎总是过长；深层嵌套（循环内套循环、嵌套 if/else/try）；超过 5–6 个参数；高抽象层与低抽象层交织。此外，注释如 `// Step 1`、`// Step 2` 暗示多段异质逻辑，每个分段都可以是一个独立函数。JetBrains 的 Upsource 博客进一步指出：从代码审查侧-by-side diff 中可直观看出方法内混杂“消息解析”与“UI 渲染”两类性质完全不同的代码块[reference:2]。
+
+### 2.2 混杂职责在外观上的表现
+
+长方法（Long Method）典型的视觉表现是：方法过于冗长，包含多个逻辑分支和多个职责[reference:3]。方法名本身也是外观信号——“方法名里带‘and’或‘or’”意味着响应两个变化原因[reference:4]。**空行分段**被确认为核心视觉手段：空行本质上是“视觉分组”，但过度使用（每条语句间都塞空行）会打断阅读节奏，Clean ABAP 指南明确指出这种冲动“可能暗示你的方法没有做到只做一件事”[reference:5]。当屏幕上的函数被空行切割后，仍能看到个别块做了性质完全不同的事，这正是职责混杂的外观特征。
+
+### 2.3 静态分析中可近似反映职责混杂的可见代理指标
+
+传统静态分析指标中，**函数长度（Function Length）** 是最直接的视觉代理：长函数倾向于做太多事[reference:6]。**圈复杂度（Cyclomatic Complexity）** 虽然量化了逻辑分支数，但视觉上对应的表现是“凹凸不平的道路”（Bumpy Road）——函数内出现多个嵌套逻辑块，迫使阅读者频繁减速[reference:7]。**认知复杂度（Cognitive Complexity）** 更贴近视觉体验：嵌套越深，人眼越难以在一个屏幕内建立上下文。此外，“提取想象”测试——如果你能给一块代码命名一个函数名，它大概就应该是一个独立函数——本质上是个视觉块识别测试。
+
+### 2.4 过度拆分的视觉噪声（反例）
+
+过度原子化同样产生可见噪声。小到 1–3 行、仅被调用一次的函数被称为 **micro-methods**，读者需要在多个函数间跳转才能理解完整逻辑，“容易迷路、容易丧失优化视野”。当函数体远短于其名称和声明的开销时（如 `int foo() { return do_foo(); }`），视觉上产生大量“函数壳”碎片，反而掩盖逻辑流。Martin Fowler 的观点为边界提供了锚点：**名称与本体之间的语义距离**才是核心标准，而非单纯的函数长度[reference:10]。这意味着 5 档“高度对称、布满短小规律的函数列”在某些场景下可能是过度拆分的噪声，而非理想状态。
+
+---
+
+## 3. 当前文案的多维度评估
+
+### 3.1 名称准确性：**单一职责原则的外观量表** vs. 用户意图
+
+**评估结果：名称准确**。当前维度文案始终围绕“屏幕上可见的代码块边界”和“异质代码块混杂程度”展开，没有滑入“类的变化原因”“需求变更频率”等纯设计层面概念。但需要指出：维度名称“单一职责原则”本身是设计原则，量表化后应强调其**外观代理维度**（例如“职责边界可视化”或“代码块同质性”），但这不在本轮修文范围内，仅作提示。
+
+### 3.2 单调性：0→5 是否单向递增
+
+**评估结果：基本单调，但存在局部跳跃风险**。
+
+- **0→1→2→3** 形成清晰递进：从“无任何分块”到“空行勉强分隔”，再到“函数明显变短变多、大多数意图清晰”，再到“每个函数/类专注如激光”。视觉上逐级“清爽”，可辨识。
+- **3→4** 出现跳跃：4 档强调“严格原子化、寥寥数行、俳句集合”，引入了**函数体积极短小**这一新维度，部分偏向过度拆分的极端。
+- **4→5** 引入了**模块内聚**和**函数列的规律性**，这些属于“组织结构视图”而非纯粹的“职责边界视图”，与 0–3 的核心线索（异质块混杂→清晰意图块）存在维度漂移。
+
+### 3.3 概念混入风险
+
+**评估结果：存在轻度混入，但尚未严重混淆**。
+
+以下概念的可见外观与“职责边界”高度相关，但各档位侧重不同：
+
+| 概念 | 出现档位 | 属于纯外观？ | 是否存在混入？ |
+|---|---|---|---|
+| 函数长度 | 0,1,2,3,4 | ✓ 是 | 合理，未混入 |
+| 空行切割 | 1 | ✓ 是 | 合理 |
+| 命名精准度 | 3 | 部分（命名可见，但“精准”是语义） | 轻微混入 |
+| 过度原子化 | 4 | ✓ 是 | 合理 |
+| 模块内聚 | 5 | **否**（模块内部关联强度，非纯视觉） | 混入风险 |
+| 函数列规律性 | 5 | 部分 | 混入风险 |
+
+### 3.4 是否存在架构/哲学/业务层面误导
+
+**评估结果：未发现明显误导**。文案始终避免使用“变化原因”“行为者”“测试性”“可维护性”等架构术语，集中在“屏幕上的函数长什么样”。唯一可商榷的是 5 档中“模块内聚如乐高积木群”引入了模块级概念，弱化了函数级的外观观察。
+
+### 3.5 档位间概念边界
+
+**评估结果：0–3 边界清晰，4 与 5 存在部分重叠**。
+
+- **0↔1**：清晰——有无空行切割的差别。
+- **1↔2**：清晰——“仍有个别臃肿”vs“大多数只对应一个清晰意图”。
+- **2↔3**：清晰——“个别臃肿”到“无臃肿”。
+- **3↔4**：基本清晰——从“小但非极短”到“极短”，但语义空间较小。
+- **4↔5**：**边界模糊**——4 的“寥寥数行、俳句集合”与 5 的“布满短小规律的函数列”高度重叠，区别在于 5 加入了模块内聚维度。
+
+---
+
+## 4. 最终判断
+
+**当前维度适合作为“代码外观”量表**，核心假设成立：职责单一与否确实在屏幕上有肉眼可观察的外观表现（函数长度、异质块混杂、空行切割、命名体量比）。0–4 档形成单调递增的视觉谱系，但存在以下改进空间：
+
+1. **5 档偏离了“职责边界”外观主线**，引入了模块内聚和函数列规律性，建议回退到更极致的职责外观描述（如“一次扫视可看完一个类中所有函数名即可理解全部意图”）。
+2. **4 档与 5 档视觉差别不足**，“俳句集合”与“短小规律的函数列”对肉眼而言几乎是同一画面。
+3. **3 档中“命名精准”带有语义判断**，建议替换为纯外观描述（如“每个块的名称短而具体，不需要注释即可辨识其意图”是可观察的命名外观，但“精准”本身需要阅读理解）。
+
+---
+
+## 5. 修改建议
+
+**建议修改 3、4、5 档文案，使全量表保持在单一维度（职责边界在屏幕上的可见分块程度）上单调递增。** 替代文案如下：
+
+- **0**：函数像塞满杂物的抽屉，数据库查询、界面拼装、字符串操作混在一起，滚几屏才见底
+- **1**：长函数偶尔被空行切割，但仍能看出个别块做了性质完全不同的事，相关代码仅靠空白勉强分隔
+- **2**：屏幕上的函数明显变短变多，大多数函数只对应一个清晰意图，但偶尔仍有一两个稍显臃肿
+- **3**：每个函数体只包含同一抽象层的语句，代码区呈现大量短小的命名块，每个块内部看不到性质跳变
+- **4**：函数严格原子化，平均长度仅寥寥数行，屏幕仿佛代码的微型积木集合，一次扫视可见多个完整函数
+- **5**：类内函数列表即意图目录，浏览函数名即可理解全部流程，无需跳入任何函数体查看实现细节
+
+**修改说明**：
+
+| 档位 | 原问题 | 修改方式 |
+|---|---|---|
+| 0 | 无问题 | 保留原文 |
+| 1 | 无问题 | 保留原文 |
+| 2 | 无问题 | 保留原文 |
+| 3 | “命名精准”带语义判断 | 替换为“同一抽象层、块内部看不到性质跳变” |
+| 4 | “俳句”隐喻与 5 重叠 | 替换为“微型积木集合”，强调单屏幕可容纳多个完整函数 |
+| 5 | 引入模块内聚，偏离外观主线 | 替换为“函数列表即意图目录”，回归职责边界在屏幕上的终极可视化——仅靠函数名即可导航全部逻辑 |
+
+Citations:
+- [reference:0] Structured reference | TOOL_OPEN#7 | no precise page mapping recovered in text output
+- [reference:1] Structured reference | TOOL_OPEN#7 | no precise page mapping recovered in text output
+- [reference:2] Exact page | What to look for in a Code Review: SOLID Principles | The Upsource Blog | https://blog.jetbrains.com/upsource/2015/08/31/what-to-look-for-in-a-code-review-solid-principles-2/
+- [reference:3] Exact page | 如何识别和解决 Java 代码中的坏味道 | https://cloud.tencent.cn/developer/article/2408794
+- [reference:4] Exact page | 详解Java中的设计原则：单一职责原则 (SRP) 在小型项目中的应用 | https://www.php.cn/faq/2098613.html
+- [reference:5] Exact page | 别把空行当成“礼貌”：ABAP 代码可读性里最容易被忽视的细节 | https://jerry.blog.csdn.net/article/details/147554050
+- [reference:6] Exact page | Metrics¶ | https://sourcery-analytics.sourcery.ai/metrics.html
+- [reference:7] Exact page | Cyclomatic complexity - a fresh look at code complexity｜Blog | https://codescene.com/blog/bumpy-road-code-complexity-in-context/
+- [reference:8] Structured reference | TOOL_OPEN#7 | no precise page mapping recovered in text output
+- [reference:9] Structured reference | TOOL_OPEN#17 | no precise page mapping recovered in text output
+- [reference:10] Exact page | 重构艺术 | 如何优雅地“提炼函数“ | https://blog.csdn.net/cj151525/article/details/147164853
+- [citation] [Code翻译]衡量软件的复杂性。使用什么指标？ | https://juejin.cn/post/7037054230275817486?from=search-suggest
+- [citation] 《C++代码整洁之道：C++17 可持续软件开发模式实践》 —3.6 高内聚原则 | https://bbs.huaweicloud.cn/blogs/146206
+- [citation] 【软件重构】如何识别代码坏味道 | https://bbs.huaweicloud.com/blogs/371691
+- [citation] 【设计原则篇】单一职责原则（SRP） | https://www.cnblogs.com/harley-chang/p/16273208.html
+- [citation] 【Go团队亲授】：为什么我们要求所有PR必须通过“别扭感审查”？——一份内部Code Review Checklist首次公开 | https://datasea.cn/go0213485500.html
+- [citation] #yyds干货盘点# 模块内聚和耦合的基础知识 | https://www.ucloud.cn/yun/124363.html
+- [citation] 🔒 From Chaos to Clarity: Refactoring Long Methods into Pure Functions | https://tsecurity.de/de/2511371/IT+Programmierung/From+Chaos+to+Clarity%3A+Refactoring+Long+Methods+into+Pure+Functions/de/155807/K%C3%BCnstliche+Intelligenz++Videos+%2F+AI/de/8/IT+Sicherheit/Hacker/
+- [citation] 🔒 Sniffing Out Code Smells and Design Smells: A Guide to Cleaner Code | Web Theory: Part 13 | https://tsecurity.de/de/2423089/IT+Programmierung/Sniffing+Out+Code+Smells+and+Design+Smells%3A+A+Guide+to+Cleaner+Code+%7C+Web+Theory%3A+Part+13/
+- [citation] 3 Using Functions, to Break Up Long Functions · Five Lines of Code: How and when to refactor | https://livebook.manning.com/book/five-lines-of-code/chapter-3/v-2/Rule-Either-Call-or-Pass
+- [citation] 3.3 编码细节观 | https://blog.csdn.net/zhangmalong/article/details/104424040
+- [citation] 6种设计原则详解系列文章｜单一职责原则（SRP）：为什么你的类总是越改越乱？ | https://blog.csdn.net/weixin_58043003/article/details/159462850
+- [citation] 代码大全2阅读笔记2 | https://www.cnblogs.com/jlr1207/p/20068405#commentform
+- [citation] 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+- [citation] 代码度量 | https://doc.qt.ac.cn/coco/code-metrics.html
+- [citation] 代码对比中最容易被忽视的"隐形干扰项"：空行对v-code-diff结果的影响深度剖析 | https://blog.csdn.net/gitblog_07607/article/details/148915104
+- [citation] 代码检查：行尾不必要的空白 | JetBrains Rider | https://www.jetbrains.com.cn/help/rider/2025.2/UnnecessaryWhitespace.html
+- [citation] 代码检查：行尾不必要的空白 | ReSharper | https://www.jetbrains.com.cn/help/resharper/UnnecessaryWhitespace.html
+- [citation] 代码整洁之道 | https://www.renrendoc.com/paper/156726029.html
+- [citation] 代码之丑 - 上海小墨子 | https://www.cnblogs.com/parent-absent-son/p/17780204.html
+- [citation] 代码质量 - 内聚 | https://blog.csdn.net/luckeast/article/details/104532814
+- [citation] 单一职责原则--SRP | https://www.cnblogs.com/codeguy/archive/2012/03/26/2418820.html
+- [citation] 单一职责原则（Single Responsibility Principle） | https://blog.csdn.net/aijianxie8808/article/details/101647783
+- [citation] 单一职责原则（The Single Responsibility Principle, SRP） | https://blog.csdn.net/weixin_37711738/article/details/141682546
+- [citation] 第7章 面向对象设计解析.pptVIP | https://max.book118.com/html/2016/0322/38396922.shtm
+- [citation] 鸿蒙页面代码构建：基于 HarmonyOS 6.0 的跨端开发实战 | https://shangjinzhu.blog.csdn.net/article/details/161145682
+- [citation] 可维护性杀手：代码坏味道与启发式原则 | https://www.baeldung-cn.com/cs/maintainability-killers
+- [citation] 面向对象类设计的五大原则（一）单一职责原则Single Responsibility Principle | http://www.51testing.com/html/50/54350-246354.html
+- [citation] 敏捷软件开发——第8章 SRP：单一职责原则 | https://www.cnblogs.com/lxbmaomao/p/8595852.html
+- [citation] 敏捷思维：简单设计 | https://tech.it168.com/a2009/0824/6671/000000667155_4.shtml
+- [citation] 瓶颈和糟糕的代码风格 - 腾讯云开发者社区 | https://cloud.tencent.com.cn/developer/information/%e7%93%b6%e9%a2%88%e5%92%8c%e7%b3%9f%e7%b3%95%e7%9a%84%e4%bb%a3%e7%a0%81%e9%a3%8e%e6%a0%bc
+- [citation] 如何分析方法引用在提升团队代码库审查质量方面的客观量化分析 | https://www.php.cn/faq/2470707.html
+- [citation] 如何构建高效团队：CR与代码治理的深度实践指南 | https://developer.baidu.com/article/detail.html?id=3815969
+- [citation] 如何让代码CR真正成为开发效能引擎：技术团队高效落地实践指南 | https://developer.baidu.com/article/detail.html?id=3816573
+- [citation] 如何写好一个函数 | https://blog.csdn.net/Andrew_Chenwq/article/details/123074902
+- [citation] 如何做好团队的CR和代码治理？ | https://developer.baidu.com/article/detail.html?id=3815790
+- [citation] 软件架构的内聚的通俗易懂的理解 | https://blog.csdn.net/qq_30719815/article/details/153263896
+- [citation] 软件架构III：模块化 | https://www.jianshu.com/p/36a56566422f
+- [citation] 软件开发管理：代码审查、演示、运营评分卡与组织设计 - CSDN文库 | https://wenku.csdn.net/column/6n6hkkmtc2
+- [citation] 软件配置管理（四）代码味道与重构 | https://blog.csdn.net/weixin_45668903/article/details/117907010
+- [citation] 软件设计原则之内聚、耦合类型剖析与内聚度、耦合度比较 | https://cloud.tencent.cn/developer/article/1795059
+- [citation] 软件设计原则之内聚、耦合类型剖析与内聚度、耦合度比较 | https://bbs.huaweicloud.com/blogs/242488
+- [citation] 设计模式学习笔记：一些好的编码规范 | https://juejin.cn/post/7235916193185742885
+- [citation] 设计原则 \ 单一职责，让你的代码变的清爽 | https://cloud.tencent.cn/developer/article/1803063
+- [citation] 设计原则 \ 单一职责，让你的代码变的清爽 | https://cloud.tencent.com.cn/developer/article/1803063?from=15425
+- [citation] 深入理解设计原则之单一职责原则(SRP)【软件架构设计】 | https://blog.csdn.net/weixin_30197685/article/details/130906358
+- [citation] 什么是WorkBuddy的智能重构建议？如何消除代码中的坏味道？ | https://www.php.cn/faq/2317363.html
+- [citation] 史无前例的设计模式-单一职责原则 | https://blog.51cto.com/u_12132623/3065955
+- [citation] 物件導向軟體設計原則 - 單一職責原則 ｜資通電腦電子報 | https://marketing.ares.com.tw/newsletter/2007-07/it-2
+- [citation] 用过那么多评估开发工作量的指标，还是它最好用！ | http://www.broadview.com.cn/article/420227
+- [citation] 优秀的开发者从命名开始 | https://cloud.tencent.cn/developer/article/1607793?from=15425
+- [citation] 重构-改善既有代码的设计之代码的坏味道举例说明 | https://cloud.tencent.com.cn/developer/article/2407396?from=15425
+- [citation] 遵循代码整洁之道Clean_Code中的面向对象规范 | https://www.php.cn/faq/2276292.html
+- [citation] An Introduction To Software Metrics | https://test.c-sharpcorner.com/UploadFile/ab7ab3/an-introduction-to-software-metrics/
+- [citation] articles/the-solid-principles-in-pictures/the-solid-principles-in-pictures.md at master · ugonnathelma/articles | https://app4.secure.forcepoint.com/ugonnathelma/articles/blob/master/the-solid-principles-in-pictures/the-solid-principles-in-pictures.md
+- [citation] Best practices: Many small functions/methods, or bigger functions with logical process components inline? | https://library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/250284/best-practices-many-small-functions-methods-or-bigger-functions-with-logical-p#comment111055_250284
+- [citation] churnlens | https://lib.rs/crates/churnlens
+- [citation] Clean Code （4）：函数长度、抽象层次 | https://blog.csdn.net/Tracycoder/article/details/157182009
+- [citation] Clean Code and Code Smells | https://blogs.oregonstate.edu/philipseniorproject/2024/01/12/clean-code-and-code-smells/
+- [citation] Clean Code Notes | https://developer.aliyun.com/article/684075
+- [citation] Code Metrics | https://www.sciencedirect.com/topics/computer-science/code-metrics
+- [citation] Code Quality Metrics AI Coding Agents Can Actually Use | Moderne | https://www.moderne.ai/blog/code-quality-metrics-that-ai-coding-agents-can-actually-use
+- [citation] Code Smell 285 - How to Fix Non-Imperative Functions | HackerNoon | https://hackernoon.com/code-smell-285-how-to-fix-non-imperative-functions?source=rss
+- [citation] Code Smell 285 - Non-Imperative Functions Names | https://dev.to/mcsee/code-smell-285-non-imperative-functions-names-33no
+- [citation] codemetrica - npm Package Security Analysis - Socket | https://socket.dev/npm/package/codemetrica
+- [citation] Cyclomatic Complexity: What It Is and How to Reduce It | Sourcegraph Blog | https://webflow.sourcegraph.com/blog/cyclomatic-complexity-what-it-is-and-how-to-reduce-it
+- [citation] design-smell-detector • Skills-4-SE • ArabelaTso • Skills • Registry • Tessl | https://tessl.io/registry/skills/github/ArabelaTso/Skills-4-SE/design-smell-detector
+- [citation] Edit - Software Engineering Stack Exchange | https://softwareengineering.stackexchange.com/posts/345365/edit
+- [citation] Go代码可维护性评分模型：基于AST分析的5维度打分（耦合度/函数长度/错误处理完整性/测试覆盖） | https://datasea.cn/go0402572058.html
+- [citation] Is Your Code Readable? 7 Rules to Follow | Feature-Sliced Design | https://feature-sliced.design/kr/blog/code-readability-tips
+- [citation] MCP Servers | https://chat.mcp.so/server/ast-metrics/Halleck45
+- [citation] On the Effectiveness of Bug Predictors with Procedural Systems: A Quantitative Study | https://link.springer.com/chapter/10.1007/978-3-662-54494-5_5/tables/3
+- [citation] OO设计中的度量 - 混沌中立 | http://www.blogjava.net/GandofYan/archive/2006/06/07/51054.html#FeedBack
+- [citation] pragmatic-clean-code-reviewer | Skills Marketplace | https://lobehub.com/skills/zhen-bo-pragmatic-clean-code-reviewer
+- [citation] Program Structure | https://coderanch.com/t/509497/java/Program-Structure?nonMobile=true
+- [citation] Project Blog – 4 | https://blogs.oregonstate.edu/connorschutze/2025/01/16/project-blog-4/#site-content
+- [citation] Quantitative Code Quality Assessment | https://www.emergentmind.com/topics/quantitative-assessment-of-code-quality
+- [citation] Reconstructing the bad taste of code | https://www.programmersought.com/article/227610877160/
+- [citation] Review First posts | https://devops.stackexchange.com/review/first-posts/5604
+- [citation] Revision 0eef0e6b-3c95-4da3-a6b7-66d9659417f4 | https://softwareengineering.stackexchange.com/revisions/0eef0e6b-3c95-4da3-a6b7-66d9659417f4/view-source
+- [citation] Revision 2a912d40-6289-4dd7-b8f1-006dc8be75ec | https://devops.stackexchange.com/revisions/2a912d40-6289-4dd7-b8f1-006dc8be75ec/view-source
+- [citation] Revision 44e90f87-2e8f-43f2-862a-2725bb180760 | https://softwareengineering.stackexchange.com/revisions/44e90f87-2e8f-43f2-862a-2725bb180760/view-source
+- [citation] Revision 675af941-8817-40fd-9a15-12e621914d1d | https://softwareengineering.stackexchange.com/revisions/675af941-8817-40fd-9a15-12e621914d1d/view-source
+- [citation] Revision 777ab911-c542-4430-b436-ed213d3b3b0e | https://softwareengineering.stackexchange.com/revisions/777ab911-c542-4430-b436-ed213d3b3b0e/view-source
+- [citation] Revision b29a0e83-0854-45a3-a893-e586a5984184 | https://softwareengineering.stackexchange.com/revisions/b29a0e83-0854-45a3-a893-e586a5984184/view-source
+- [citation] Separating the UI Code from the Business Code: What's Reasonable? -- Visual Studio Magazine | https://visualstudiomagazine.com/articles/2014/05/01/separating-the-ui-code-from-the-business-code.aspx?Page=1
+- [citation] Single Responsibility Principle: learn about this SOLID principle | http://www.softplan.com.br/en/tech-writers/conheca-um-dos-principios-solid-mais-importantes-single-responsibility-principle/
+- [citation] Single Responsibility Principle: Practical Guide to writing maintainable code | https://blog.bitsrc.io/single-responsibility-principle-practical-guide-to-writing-maintainable-code-50ec261819b7?gi=8acea7caed7e&source=user_profile_page---------6-------------8c06f89a3b9e---------------
+- [citation] Single-responsibility principle meets the real world! (Dubai Edition) | https://d1eu30co0ohy4w.cloudfront.net/ragunathjawahar/single-responsibility-principle-meets-the-real-world-dubai-edition
+- [citation] ui-polish-review | Skills Marketplace · LobeHub | https://lobehub.com/skills/neversight-learn-skills.dev-ui-polish-review
+- [citation] What are your programming hot takes? - Divisions by zero | https://privacy.lemmy.dbzer0.com/post/3136566/2592531
+- [citation] What Code Complexity Metrics Miss About Real Maintainability - Codequiry Blog | https://dashboard.codequiry.com/blog/what-code-complexity-metrics-miss-about-real-maintainability
+- [citation] Your Static Analysis Tool Is Missing the Real Code Smells - Codequiry Blog | https://dashboard.codequiry.com/blog/your-static-analysis-tool-is-missing-the-real-code-smells
+
+sessionId: 0731adb4-f895-4c22-944e-db035f13eafa

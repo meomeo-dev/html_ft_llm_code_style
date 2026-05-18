@@ -1,0 +1,185 @@
+回复ID: ExceptionVisualScale-20260518-001
+
+## 一、维度名称与定义确认
+
+**维度名称**（Dimension Name）：异常使用程度 (Exception Usage Level)。该名称指向的是“异常相关语法在代码中的可见密度与集中程度”，而非异常机制的优劣或语义正确性。经过检索验证，主流代码风格指南和静态分析工具中确实存在一组可观测的语法元素——`throw`、`try/catch`、`throws` 子句、自定义异常类、错误码（error code / error return）——它们在不同语言和不同风格的代码中呈现显著的视觉密度差异。因此，**名称能够准确表达该维度的外观含义，无需更名**。
+
+> **信号词**（Signal Word）：**代码外观 (Code Appearance)** ——本维度只关注“屏幕上能看到什么语法元素及它们的密集程度”，不涉及时运行时行为、性能、安全性或正确性。
+
+---
+
+## 二、0–5 档逐档审查
+
+### 0 档：“代码里充满返回值比较、错误码字面量，看不到 throw 或 try/catch 关键字”
+
+**可观察性**：✅ 强。在 Go 语言中，显式的 `if err != nil` 和 return 错误值是核心控制流而非语法糖[reference:0]。Rust 通过 `Result<T, E>` 枚举和 `match` / `?` 运算符传播错误，没有 try-catch 机制[reference:1]。Go 的官方文档明确指出 Go 没有异常，错误处理通过检查返回值完成，这导致代码充满 `if err != nil` 模式的视觉重复[reference:2]。此种代码在屏幕上**完全看不到 throw 关键字和 try/catch 结构**。
+
+**档位边界**：0 档代表“异常语法完全缺失”的极端。此档对 Go、Rust 和传统 C 风格错误码代码都成立。注意 Go 有 `panic/recover`，但它通常只用于不可恢复的致命错误，不会在日常业务代码中密集出现[reference:3]。
+
+---
+
+### 1 档：“整片代码仅一两个孤立的 throw，只出现在标注严重的判死分支中，其余地方仍是返回码风格”
+
+**可观察性**：⚠️ 较弱。`throw` 语句本质上是稀疏的——即使在重度使用异常的语言中，`throw` 通常也只出现在少数位置。**屏幕可见密度差异**需要肉眼在大量代码中寻找并对比两个 `throw` 和一个 `throw` 的区别，这使得 1 档与 2 档在视觉上不易区分。
+
+**与相邻档位的关系**：1 档与 0 档之间是“0 个 throw”到“1-2 个 throw”的过渡，从代码外观角度看，这个跃迁是可见的——0 档完全看不到 throw 关键字，1 档开始出现该关键字。因此 0→1 的单调性成立。
+
+---
+
+### 2 档：“throw 语句零星点缀在非正常路径里，与返回错误码的区域混合，一眼望去 throw 与 return -1 并存”
+
+**可观察性**：✅ 较强。“throw 与 return -1 并存”是一个明确的视觉特征——屏幕上同时出现异常语法和错误码语法。这种混合风格在从错误码向异常过渡的代码库中很常见。根据学术研究，跨语言的异常处理代码在频率、结构和范围长度上存在显著差异[reference:4], 某些语言和项目中确实存在两者混用的“过渡带”。
+
+**与相邻档位的关系**：2 档与 1 档的区别在于 throw 语句的密度从“孤立的”变为“零星点缀”，但这一差异边界模糊。更关键的区分应该是 2 档特有的“混合”特征——throw 与 return -1 并存。建议在文案中强化这一对比。
+
+---
+
+### 3 档：“方法签名尾部挂着长长的 throws 子句，调用点强行被 try/catch 包围，方法头变得臃肿”
+
+**可观察性**：⚠️ 较强但存在**严重的语言依赖性**。`throws` 子句是 **Java checked exceptions** 机制的特有语法。Checkstyle 的 `ThrowsCount` 规则明确限制方法声明的 throws 语句数量，因为声明抛出过多不同根类型的异常会使异常处理变得繁琐并导致不良编程实践如 `catch(Exception ex)`[reference:5]。
+
+**问题**：
+- 对于 Python、C#、JavaScript、Go、Rust 代码，**根本不存在 `throws` 子句**。将一个 Java 特有的语法特征作为外观量表的中间档位，会导致量表在多语言场景下出现“语义黑洞”——非 Java 代码无法落到此档。
+- 即使对于 Java，`throws` 子句的长度也受 checked exceptions 设计的影响，这不是一个纯粹的“代码外观”问题，而掺杂了语言机制。
+
+---
+
+### 4 档：“throw new 后面跟着各式各样的自定义异常类名，类定义区出现大量继承自 Exception 的类”
+
+**可观察性**：✅ 较强。大量自定义异常类是一种代码外观特征——屏幕上出现多个 `class XxxException extends Exception` 定义，在抛出点 `throw new` 后跟不同类名。PMD 规则和代码审查资料中“避免创建未使用的异常类”正是针对此类问题[reference:6]。
+
+**与相邻档位的关系**：4 档与 3 档之间存在概念跳跃：3 档侧重于方法签名的 `throws` 声明，4 档侧重于自定义异常类的数量和 `throw new` 的多样性。两者的“屏幕可见物”不同，但都是异常使用密度增大的外在表现。
+
+---
+
+### 5 档：“try/catch 像 if/else 一样密集，正常的业务流程被包裹在异常处理中”
+
+**可观察性**：✅ 强。`try/catch` 块大量嵌套或密集排列是明确的外观特征。JavaScript 中过度使用 try/catch 是常见问题——一个大 try/catch 块隐藏错误的真正原因，使代码变成意大利面条[reference:7]。风格指南建议适当使用 throw 语句避免程序充满 try-catch 块，因为这会降低可读性[reference:8]。
+
+**此档作为极端上界是合适的**。
+
+---
+
+## 三、档位间的单调性与互斥性评估
+
+### 单调性
+
+| 档位 | 核心语法元素 | 视觉密度趋势 |
+|------|-------------|-------------|
+| 0 | 仅有错误码/返回值比较，无异常关键字 | 最低 |
+| 1 | 极少量 throw，其余返回码 | ↑ |
+| 2 | throw + 错误码混合 | ↑ |
+| 3 | throws 子句 + 强制 try/catch | ↑ |
+| 4 | 大量自定义异常类 + throw new | ↑ |
+| 5 | try/catch 密集如 if/else | 最高 |
+
+从 0→5 的宏观趋势是“异常相关语法在屏幕上的可见密度从无到有再到泛滥”，单调性成立。但 1→2 的跃迁边界模糊，主要区分点应是 2 档特有的“throw 与错误码并存”特征。
+
+### 互斥性
+
+互斥性存在以下问题：
+
+1. **3 档的 `throws` 子句与其他档位概念不对等**：0-2 档以 throw 关键字的出现密度为线索，4-5 档以 try/catch 和自定义异常的密集程度为线索，但 3 档插入了一个完全不同的概念（方法签名级别的 throws 声明）。在 Java 中，一个类可能同时有多个自定义异常类（4 档特征）和较长的 throws 子句（3 档特征），此时两档边界不清晰。
+
+2. **语言边界未声明**：量表未说明 3 档仅适用于 Java 及类似 checked exceptions 的语言。对于 Python/C#/JavaScript，3 档无意义。
+
+---
+
+## 四、是否需要修改
+
+**需要修改**。主要理由：
+
+1. **3 档的语言依赖性过强**，削弱了作为通用外观量表的适用性。
+2. **1 档与 2 档的视觉区分度不足**，两者都以“很少 throw + 错误码为主”为特征。
+3. 量表的核心变量（异常语法密度）可以更一致地贯穿 0–5 档。
+
+---
+
+## 五、替代文案建议
+
+> **信号词**：**视觉密度 (Visual Density)** ——每一档描述的是屏幕上异常相关语法元素的可观测密度，不涉及语义正确性、性能或语言哲学。
+
+| 档位 | 替代文案 |
+|------|---------|
+| **0** | 代码里只看到 `if (ret == -1)` 或 `if err != nil` 这类返回值比较，完全见不到 `throw`、`try`、`catch` 关键字，异常语法彻底缺席 |
+| **1** | 偶尔出现一两个孤立的 `throw` 语句，绝大多数错误处理仍是逐层返回错误码，异常关键字在屏幕上半隐半现 |
+| **2** | `throw` 语句零星散布在多个函数中，但远未成为主流；关键路径上仍以 `return false` 或 `return -1` 式的错误码为主，二者混杂交织 |
+| **3** | 几乎每个可能出错的函数都用 `throw` 抛出异常，错误码已被系统性替换；但 `try/catch` 仅限于少数顶层调用点或资源管理处，尚未泛滥 |
+| **4** | `throw new` 后面出现大量不同的自定义异常类名，`catch` 块按异常类型精细化分支；文件开头可见一连串异常类定义继承自基类 |
+| **5** | `try/catch` 块像 `if/else` 一样密集嵌套，连正常业务流程也被包裹在异常处理中；屏幕上一眼望去满是 try 块的缩进层级和 catch 的类型分支 |
+
+### 修改要点说明
+
+1. **3 档的去语言依赖化**：将原来的“throws 子句 + 强制 try/catch”替换为“throw 已成为主流、但 try/catch 尚克制”，这对所有支持异常的语言均适用，且与 2 档（throw + 错误码混合）和 4 档（大量自定义异常 + try/catch 精细化）形成清晰的梯度。
+
+2. **1 档与 2 档边界的强化**：1 档强调“一两个孤立 throw + 其余返回码”，2 档强调“多个函数中零星散布 throw + 错误码仍占主流”。区别在于 throw 的分布范围（单点 vs 多点）和错误码的相对占比。
+
+3. **4 档与 5 档互斥性增强**：4 档的视觉焦点是“大量不同的自定义异常类名 + catch 按类型分支”，5 档的视觉焦点是“try/catch 的密集嵌套程度”。一个项目的异常类可以很多但 try/catch 使用克制（落 4 档），也可以异常类不多但 try/catch 满天飞（落 5 档），也可以是两者叠加（仍落 5 档，因为 try/catch 密度是更强的信号）。
+
+Citations:
+- [reference:0] Search result set | query=代码风格指南 异常处理 try catch throw throws 外观 密度 代码形态 | candidates=36
+  candidate 1: "Sneaky throws" in Java | Baeldung | https://www.baeldung.com/java-sneaky-throws#sneaky
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [Rust Guide] 9.2. Result Enum and Recoverable Errors Pt. 1 - Match, Expect, and Unwrap Handling Errors | https://dev.to/someb1oody/rust-guide-result-enum-and-recoverable-errors-pt-1-match-expect-and-unwrap-handling-errors-jbe#comments
+  candidate 4: 《代码整洁之道 》第七章 错误处理 | https://blog.csdn.net/weixin_39924752/article/details/127931446
+  candidate 5: 《代码整洁之道》读书笔记四 | https://www.cnblogs.com/liuyichendeyuanzi/p/14149848.html
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query=languages without exceptions discourage exceptions error codes only | candidates=16
+  candidate 1: "Exceptions will fade away in modern languages" (page 3) | https://forum.dlang.org/thread/lhyagawrjzzmrtbokazt@forum.dlang.org?page=3
+  candidate 2: [Java] Hidden catch block | https://community.sonarsource.com/t/java-hidden-catch-block/3549
+  candidate 3: 问哪种编程语言没有运行时异常？EN | https://cloud.tencent.com.cn/developer/ask/sof/112923084
+  candidate 4: Abstraction issues | Inspectopedia | https://www.jetbrains.com/help/inspectopedia/Java-Abstraction-issues.html?topic=Commit%20and%20push%20changes
+  candidate 5: Alternative to try..catch..finally in Rust - help - The Rust Programming Language Forum | https://users.rust-lang.org/t/alternative-to-try-catch-finally-in-rust/93416/2
+  ... 11 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=languages without exceptions discourage exceptions error codes only | candidates=28
+  candidate 1: 问终于在Python中添加了更好的可读性。EN | https://cloud.tencent.com.cn/developer/ask/sof/111375131?from=16139
+  candidate 2: C# 3.0 Pocket Reference, 2nd Edition | https://www.oreilly.com/library/view/c-30-pocket/9780596519223/ch01s26.html
+  candidate 3: C# 5.0 Pocket Reference | https://www.oreilly.com/library/view/c-50-pocket/9781449335441/ch01s29.html
+  candidate 4: Chris's Wiki :: blog/programming/RustSortingOutErrorHandling | https://utcc.utoronto.ca/~cks/space/blog/programming/RustSortingOutErrorHandling
+  candidate 5: Contrasting exception handling code across languages: An experience report involving 50 open source projects | https://researchr.org/publication/JakobusBGL15/related
+  ... 23 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=代码风格指南 异常处理 try catch throw throws 外观 密度 代码形态 | candidates=36
+  candidate 1: "Sneaky throws" in Java | Baeldung | https://www.baeldung.com/java-sneaky-throws#sneaky
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [Rust Guide] 9.2. Result Enum and Recoverable Errors Pt. 1 - Match, Expect, and Unwrap Handling Errors | https://dev.to/someb1oody/rust-guide-result-enum-and-recoverable-errors-pt-1-match-expect-and-unwrap-handling-errors-jbe#comments
+  candidate 4: 《代码整洁之道 》第七章 错误处理 | https://blog.csdn.net/weixin_39924752/article/details/127931446
+  candidate 5: 《代码整洁之道》读书笔记四 | https://www.cnblogs.com/liuyichendeyuanzi/p/14149848.html
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=languages without exceptions discourage exceptions error codes only | candidates=28
+  candidate 1: 问终于在Python中添加了更好的可读性。EN | https://cloud.tencent.com.cn/developer/ask/sof/111375131?from=16139
+  candidate 2: C# 3.0 Pocket Reference, 2nd Edition | https://www.oreilly.com/library/view/c-30-pocket/9780596519223/ch01s26.html
+  candidate 3: C# 5.0 Pocket Reference | https://www.oreilly.com/library/view/c-50-pocket/9781449335441/ch01s29.html
+  candidate 4: Chris's Wiki :: blog/programming/RustSortingOutErrorHandling | https://utcc.utoronto.ca/~cks/space/blog/programming/RustSortingOutErrorHandling
+  candidate 5: Contrasting exception handling code across languages: An experience report involving 50 open source projects | https://researchr.org/publication/JakobusBGL15/related
+  ... 23 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=代码风格指南 异常处理 try catch throw throws 外观 密度 代码形态 | candidates=36
+  candidate 1: "Sneaky throws" in Java | Baeldung | https://www.baeldung.com/java-sneaky-throws#sneaky
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [Rust Guide] 9.2. Result Enum and Recoverable Errors Pt. 1 - Match, Expect, and Unwrap Handling Errors | https://dev.to/someb1oody/rust-guide-result-enum-and-recoverable-errors-pt-1-match-expect-and-unwrap-handling-errors-jbe#comments
+  candidate 4: 《代码整洁之道 》第七章 错误处理 | https://blog.csdn.net/weixin_39924752/article/details/127931446
+  candidate 5: 《代码整洁之道》读书笔记四 | https://www.cnblogs.com/liuyichendeyuanzi/p/14149848.html
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=Python exception handling try except density code appearance | candidates=34
+  candidate 1: .Net Discovery系列之十二-深入理解平台机制与性能影响(下) | https://developer.aliyun.com/article/377772
+  candidate 2: ✎ Exception Handling | https://doc.sibvisions.com/jvx/client/gui/exceptionhandling?do=edit&rev=1591627771
+  candidate 3: 🔒 Code Smell 288 - Unthrown Exceptions | https://tsecurity.de/de/2588920/IT+Programmierung/Code+Smell+288+-+Unthrown+Exceptions/
+  candidate 4: 4.7. Catching exceptions using try and except¶ | https://py4e.umsi.education/ns/books/published/py4e-int/conditional/tryExcept.html
+  candidate 5: Building Responsive Applications with Visual Builder Studio | https://oracle.hydrogen.sagittarius.connect.product.adaptavist.com/en/cloud/paas/visual-builder/visualbuilder-building-applications/img_text/jsac-try-add-finally.html
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query=代码风格指南 异常处理 try catch throw throws 外观 密度 代码形态 | candidates=36
+  candidate 1: "Sneaky throws" in Java | Baeldung | https://www.baeldung.com/java-sneaky-throws#sneaky
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [Rust Guide] 9.2. Result Enum and Recoverable Errors Pt. 1 - Match, Expect, and Unwrap Handling Errors | https://dev.to/someb1oody/rust-guide-result-enum-and-recoverable-errors-pt-1-match-expect-and-unwrap-handling-errors-jbe#comments
+  candidate 4: 《代码整洁之道 》第七章 错误处理 | https://blog.csdn.net/weixin_39924752/article/details/127931446
+  candidate 5: 《代码整洁之道》读书笔记四 | https://www.cnblogs.com/liuyichendeyuanzi/p/14149848.html
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query=代码风格指南 异常处理 try catch throw throws 外观 密度 代码形态 | candidates=36
+  candidate 1: "Sneaky throws" in Java | Baeldung | https://www.baeldung.com/java-sneaky-throws#sneaky
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [Rust Guide] 9.2. Result Enum and Recoverable Errors Pt. 1 - Match, Expect, and Unwrap Handling Errors | https://dev.to/someb1oody/rust-guide-result-enum-and-recoverable-errors-pt-1-match-expect-and-unwrap-handling-errors-jbe#comments
+  candidate 4: 《代码整洁之道 》第七章 错误处理 | https://blog.csdn.net/weixin_39924752/article/details/127931446
+  candidate 5: 《代码整洁之道》读书笔记四 | https://www.cnblogs.com/liuyichendeyuanzi/p/14149848.html
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 78e1a5ef-5484-4fea-8de2-12965fd69e16

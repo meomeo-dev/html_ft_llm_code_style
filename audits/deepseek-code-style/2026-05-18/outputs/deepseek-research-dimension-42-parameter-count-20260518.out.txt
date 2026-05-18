@@ -1,0 +1,259 @@
+**回复ID: parameterCount-20260518-001**
+
+## 一、维度名称审查
+
+**维度名称（Dimension Name）**：`函数/方法参数数量限制 (Parameter Count Limit)`
+
+该名称准确表达了“从小括号内可直接数出的形参个数”这一**代码外观（Code Appearance）**。行业共识中，"Parameter Count Limit" 是 linter 规则的标准命名——ESLint 的 `max-params` 规则默认限制函数定义中最大参数数量为 3[reference:0]，Checkstyle 的 `ParameterNumber` 检查默认最多 7 个参数[reference:1]，SwiftLint 的 `function_parameter_count` 规则默认限制为 5[reference:2]。名称本身是**中性且可观察的（Observable）**，不涉及 API 设计质量判断，无需修改。
+
+---
+
+## 二、0-5 档单调递进性判断
+
+量表 0-5 档在**同一条视觉维度上呈单调递进（Monotonically Progressive）**，总体方向是从“参数多/乱”到“参数少/规整”：
+
+| 档位 | 外观特征概括 | 递进方向 |
+|------|-------------|---------|
+| 0 | 参数随意排列，长长一串挤在一起，偶有空无一物 | 最混乱 |
+| 1 | 参数个数通常看得过去，偶尔较长但大多不超一行 | ↑ |
+| 2 | 很少超过 4 个，超过时往往换行缩进对齐 | ↑ |
+| 3 | 参数列表短小，超过 3 个被改成大括号包裹的对象 | ↑ |
+| 4 | 几乎每个函数 0-2 个参数，单个参数居多 | ↑ |
+| 5 | 要么无参，要么只有一个参数，且该参数几乎总是数据类或对象字面量 | 最精简 |
+
+递进逻辑清晰：**参数数量递减（Parameter Count Decreasing）→ 换行对齐格式化（Line-wrapping Alignment）→ 参数对象引入（Parameter Object Introduction）→ 趋向单参或无参**。每一步都是从肉眼可见的代码外观上可区分的。
+
+---
+
+## 三、跨维度内容识别与风险分析
+
+### 3.1 第 5 档的核心问题
+
+第 5 档描述为：
+
+> “函数要么无参，要么只有一个参数，且该参数几乎总是一个数据类或对象字面量”
+
+这里的 **“数据类或对象字面量（Data Class / Object Literal）”** 存在跨维度风险（Cross-dimension Risk），需要精细辨析：
+
+**它可以是参数数量限制维度的自然延伸**：当团队严格执行“参数数量 <= 1”时，原本需要多个参数的数据必须被打包进一个对象。此时，对象字面量是**强制参数上限后的必然外观结果**，不是 API 风格选择。代码肉眼可见：`function doSomething(params)` 而非 `function doSomething(a, b, c, d)`。
+
+**但它也可能滑入 API 风格/参数对象模式维度**：Options Object 模式是一种有意识的设计选择，目的是让参数命名化、可选化、顺序无关[reference:3][reference:4]。它不属于参数数量限制维度——团队可能允许 5 个参数，但出于可读性偏好仍使用 options object。
+
+**判定标准**：
+- 如果代码库中几乎所有多参数函数都必然被打包成对象，且这是 lint 规则强制的结果（如 `max-params = 1`），则属于本维度。
+- 如果对象字面量的使用是风格偏好（即便参数只有 2 个也用对象包装），则属于 API 风格/参数对象模式维度。
+
+建议在第 5 档中明确强调 **“这是参数上限强制后的必然外观”** ，而非“偏好使用对象字面量”。
+
+### 3.2 第 3 档的类似问题
+
+第 3 档：
+
+> “参数列表都很短小，超过 3 个的情况被改成大括号包裹的对象”
+
+“被改成大括号包裹的对象”同样涉及 **参数对象重构（Introduce Parameter Object）** 这一重构手法。Martin Fowler 在《重构》中将“长参数列表”识别为代码坏味道，建议使用“引入参数对象”重构[reference:5]。该重构的执行**原因**可能是逻辑考虑（高内聚），但外观**结果**是：小括号内参数少、大括号包裹对象。只要量表聚焦外观结果而非重构动机，就不算越界。
+
+### 3.3 低档位（0-1）的模糊性
+
+第 0 档：
+
+> “函数小括号里参数随意排列，有的长长一串挤在一起，有的空无一物”
+
+“有的空无一物”与“长长一串挤在一起”并存，表明**代码库内参数数量不一致**——这是编码规范缺失的典型外观信号。这与高档位的“一致地少”形成递进，逻辑自洽。
+
+第 1 档：
+
+> “参数个数通常看得过去，偶尔有函数包含较长的参数列表，但大多不超过一行”
+
+“大多不超过一行”引入了**行长度（Line Length）** 维度（代码行最大字符数）。但在这里，它是参数数量在视觉上的自然代理（Proxy）：参数少→不换行→一行内。这种使用是可接受的，因为没有单独测量行长度，而是将其作为参数数量视觉外观的辅助描述。
+
+### 3.4 总结：不越界的项目
+
+以下内容**没有**出现在量表中，设计正确：
+- ❌ 未涉及 API 设计质量（如“API 是否易用”）
+- ❌ 未涉及 lint 工具强制（如“ESLint 报错”）
+- ❌ 未涉及语言特定风格（如“Go 语言选项模式”）
+- ❌ 未涉及设计质量（如“函数内聚性”）
+
+---
+
+## 四、替代文案建议（6 条，全部基于代码外观）
+
+以下 6 条替代文案均为**直接从代码外观观察（Directly Observable from Code Appearance）** 的描述，避免了对 API 质量、参数对象偏好、lint 强制、设计质量或语言风格的判断。
+
+> **第 0 档**：**函数签名（Function Signature）** 小括号内参数随意排列，数量波动剧烈，有的长长一串挤在一行，有的空无一物，无统一约定。  
+> **第 1 档**：参数个数偶有超标，个别**长参数列表（Long Parameter List）** 出现，但大多数函数签名仍可保持在一行内，整体勉强看得过去。  
+> **第 2 档**：**参数数量（Parameter Count）** 很少超过 4 个；一旦超过，调用者会采用**换行缩进对齐（Line-wrapping and Indentation Alignment）**，签名跨多行但排列工整。  
+> **第 3 档**：小括号内参数数量整体短小；原本需要多参数的场景，肉眼可见地被改写为**大括号包裹的参数对象（Parameter Object）**，即单个对象字面量替代了多个独立参数。  
+> **第 4 档**：几乎每个**函数定义（Function Definition）** 都只有 0-2 个参数，单个参数的情况占大多数，双参偶尔出现，三参及以上极少见到。  
+> **第 5 档**：函数要么无参，要么只有一个参数——且这是参数数量上限强制执行后的必然外观，该唯一参数几乎总是一个数据类或对象字面量。
+
+| 原档位 | 原描述核心问题 | 修改策略 |
+|--------|---------------|---------|
+| 0 | “空无一物”与“长长一串”并存，可能暗示不一致 | 明确“无统一约定”，强化“数量波动剧烈” |
+| 1 | “大多不超过一行”可能引入行长度维度 | 保留，作为参数数量少的自然代理 |
+| 2 | 无问题 | 仅做措辞优化 |
+| 3 | “被改成”暗示动机 | 改为“肉眼可见地被改写为”，聚焦外观结果 |
+| 4 | 无问题 | 仅做措辞优化 |
+| 5 | “数据类或对象字面量”可能误读为风格偏好 | 明确“这是参数上限强制后的必然外观” |
+
+---
+
+## 五、建议来源说明
+
+| 建议内容 | 来源性质 |
+|---------|---------|
+| 维度名称“Parameter Count Limit”的准确性 | **公开资料**：ESLint `max-params` 规则[reference:6]、Checkstyle `ParameterNumber`[reference:7]、SwiftLint `function_parameter_count`[reference:8] |
+| Clean Code 参数数量理想值（0 > 1 > 2 > 避免 3） | **公开资料**：Robert Martin《代码整洁之道》[reference:9][reference:10] |
+| 长参数列表作为代码坏味道（Code Smell） | **公开资料**：RefactoringGuru 及 Martin Fowler《重构》[reference:11][reference:12] |
+| 参数对象重构手法（Introduce Parameter Object） | **公开资料**：Martin Fowler《重构》[reference:13][reference:14] |
+| Options Object 模式属于 API 设计偏好 | **公开资料**：JavaScript 设计模式[reference:15][reference:16] |
+| 0-5 档单调递进性判断 | **推断**：基于量表文本的逻辑分析 |
+| 第 5 档跨维度风险分析 | **推断**：基于“参数数量限制”与“参数对象模式”两维度边界的人工辨析 |
+| 6 条替代文案 | **推断**：基于上述公开资料的原则，结合量表原始意图进行的措辞重构 |
+
+Citations:
+- [reference:0] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=40
+  candidate 1: 《代码整洁之道 Clean Code》学习笔记 Part 2 - 写出优雅的函数的10条建议 | https://www.cnblogs.com/tengzijian/p/17661048.html
+  candidate 2: 代码规范：换行对齐问题 | https://cloud.tencent.cn/developer/article/1179431?from=15425&frompage=seopage
+  candidate 3: 前端进阶6-ESLint + Prettier - Ⅲ、ESLint - 工作中用到的规则 | https://juejin.cn/post/7130056851898499109
+  candidate 4: 如何在Golang中实现功能选项或选项模式（附实例） | https://juejin.cn/post/7121590151708409886
+  candidate 5: 深入 GO 选项模式「附详细案例」 | https://juejin.cn/post/7332858431570984987
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=40
+  candidate 1: 《代码整洁之道 Clean Code》学习笔记 Part 2 - 写出优雅的函数的10条建议 | https://www.cnblogs.com/tengzijian/p/17661048.html
+  candidate 2: 代码规范：换行对齐问题 | https://cloud.tencent.cn/developer/article/1179431?from=15425&frompage=seopage
+  candidate 3: 前端进阶6-ESLint + Prettier - Ⅲ、ESLint - 工作中用到的规则 | https://juejin.cn/post/7130056851898499109
+  candidate 4: 如何在Golang中实现功能选项或选项模式（附实例） | https://juejin.cn/post/7121590151708409886
+  candidate 5: 深入 GO 选项模式「附详细案例」 | https://juejin.cn/post/7332858431570984987
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=36
+  candidate 1: [Effective JavaScript 笔记]第55条：接收关键字参数的选项对象 | https://www.cnblogs.com/wengxuesong/p/5640493.html
+  candidate 2: 《代码整洁之道》摘录总结 | https://cloud.tencent.cn/developer/article/1200004?from=15425
+  candidate 3: <<代码之丑>>06 | 长参数列表：如何处理不同类型的长参数？ | https://www.codefather.cn/post/1831584382470434817
+  candidate 4: 22个代码的坏味道 | https://www.cnblogs.com/jaxxiao/p/17550017.html
+  candidate 5: 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=33
+  candidate 1: 编程实践 - 仓颉编程语言编程规范 | http://docs.cangjie-lang.cn/cjnative/coding_style/source_zh_cn/Chapter_03_Programming_Practices.html#goth03-%E7%A6%81%E6%AD%A2%E4%BB%A3%E7%A0%81%E4%B8%AD%E5%8C%85%E5%90%AB%E5%85%AC%E7%BD%91%E5%9C%B0%E5%9D%80
+  candidate 2: 代码规范_51CTO博客_代码规范的重要性 | https://blog.51cto.com/u_15127565/3926580
+  candidate 3: 代码坏味道与重构之过长参数列表 | https://blog.csdn.net/qq_27283619/article/details/126576435
+  candidate 4: 代码语法样式：空值检查模式 | JetBrains Rider | https://www.jetbrains.com/zh-cn/help/rider/2025.2/Null_Checking_Pattern_Style.html#enforce-preferences
+  candidate 5: 服务端开发规范总结(持续更新) | https://juejin.cn/post/7129044929170374686
+  ... 28 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=40
+  candidate 1: 《代码整洁之道 Clean Code》学习笔记 Part 2 - 写出优雅的函数的10条建议 | https://www.cnblogs.com/tengzijian/p/17661048.html
+  candidate 2: 代码规范：换行对齐问题 | https://cloud.tencent.cn/developer/article/1179431?from=15425&frompage=seopage
+  candidate 3: 前端进阶6-ESLint + Prettier - Ⅲ、ESLint - 工作中用到的规则 | https://juejin.cn/post/7130056851898499109
+  candidate 4: 如何在Golang中实现功能选项或选项模式（附实例） | https://juejin.cn/post/7121590151708409886
+  candidate 5: 深入 GO 选项模式「附详细案例」 | https://juejin.cn/post/7332858431570984987
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=36
+  candidate 1: [Effective JavaScript 笔记]第55条：接收关键字参数的选项对象 | https://www.cnblogs.com/wengxuesong/p/5640493.html
+  candidate 2: 《代码整洁之道》摘录总结 | https://cloud.tencent.cn/developer/article/1200004?from=15425
+  candidate 3: <<代码之丑>>06 | 长参数列表：如何处理不同类型的长参数？ | https://www.codefather.cn/post/1831584382470434817
+  candidate 4: 22个代码的坏味道 | https://www.cnblogs.com/jaxxiao/p/17550017.html
+  candidate 5: 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=40
+  candidate 1: 《代码整洁之道 Clean Code》学习笔记 Part 2 - 写出优雅的函数的10条建议 | https://www.cnblogs.com/tengzijian/p/17661048.html
+  candidate 2: 代码规范：换行对齐问题 | https://cloud.tencent.cn/developer/article/1179431?from=15425&frompage=seopage
+  candidate 3: 前端进阶6-ESLint + Prettier - Ⅲ、ESLint - 工作中用到的规则 | https://juejin.cn/post/7130056851898499109
+  candidate 4: 如何在Golang中实现功能选项或选项模式（附实例） | https://juejin.cn/post/7121590151708409886
+  candidate 5: 深入 GO 选项模式「附详细案例」 | https://juejin.cn/post/7332858431570984987
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=40
+  candidate 1: 《代码整洁之道 Clean Code》学习笔记 Part 2 - 写出优雅的函数的10条建议 | https://www.cnblogs.com/tengzijian/p/17661048.html
+  candidate 2: 代码规范：换行对齐问题 | https://cloud.tencent.cn/developer/article/1179431?from=15425&frompage=seopage
+  candidate 3: 前端进阶6-ESLint + Prettier - Ⅲ、ESLint - 工作中用到的规则 | https://juejin.cn/post/7130056851898499109
+  candidate 4: 如何在Golang中实现功能选项或选项模式（附实例） | https://juejin.cn/post/7121590151708409886
+  candidate 5: 深入 GO 选项模式「附详细案例」 | https://juejin.cn/post/7332858431570984987
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=36
+  candidate 1: [Effective JavaScript 笔记]第55条：接收关键字参数的选项对象 | https://www.cnblogs.com/wengxuesong/p/5640493.html
+  candidate 2: 《代码整洁之道》摘录总结 | https://cloud.tencent.cn/developer/article/1200004?from=15425
+  candidate 3: <<代码之丑>>06 | 长参数列表：如何处理不同类型的长参数？ | https://www.codefather.cn/post/1831584382470434817
+  candidate 4: 22个代码的坏味道 | https://www.cnblogs.com/jaxxiao/p/17550017.html
+  candidate 5: 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=36
+  candidate 1: [Effective JavaScript 笔记]第55条：接收关键字参数的选项对象 | https://www.cnblogs.com/wengxuesong/p/5640493.html
+  candidate 2: 《代码整洁之道》摘录总结 | https://cloud.tencent.cn/developer/article/1200004?from=15425
+  candidate 3: <<代码之丑>>06 | 长参数列表：如何处理不同类型的长参数？ | https://www.codefather.cn/post/1831584382470434817
+  candidate 4: 22个代码的坏味道 | https://www.cnblogs.com/jaxxiao/p/17550017.html
+  candidate 5: 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=40
+  candidate 1: 《代码整洁之道 Clean Code》学习笔记 Part 2 - 写出优雅的函数的10条建议 | https://www.cnblogs.com/tengzijian/p/17661048.html
+  candidate 2: 代码规范：换行对齐问题 | https://cloud.tencent.cn/developer/article/1179431?from=15425&frompage=seopage
+  candidate 3: 前端进阶6-ESLint + Prettier - Ⅲ、ESLint - 工作中用到的规则 | https://juejin.cn/post/7130056851898499109
+  candidate 4: 如何在Golang中实现功能选项或选项模式（附实例） | https://juejin.cn/post/7121590151708409886
+  candidate 5: 深入 GO 选项模式「附详细案例」 | https://juejin.cn/post/7332858431570984987
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=36
+  candidate 1: [Effective JavaScript 笔记]第55条：接收关键字参数的选项对象 | https://www.cnblogs.com/wengxuesong/p/5640493.html
+  candidate 2: 《代码整洁之道》摘录总结 | https://cloud.tencent.cn/developer/article/1200004?from=15425
+  candidate 3: <<代码之丑>>06 | 长参数列表：如何处理不同类型的长参数？ | https://www.codefather.cn/post/1831584382470434817
+  candidate 4: 22个代码的坏味道 | https://www.cnblogs.com/jaxxiao/p/17550017.html
+  candidate 5: 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=36
+  candidate 1: [Effective JavaScript 笔记]第55条：接收关键字参数的选项对象 | https://www.cnblogs.com/wengxuesong/p/5640493.html
+  candidate 2: 《代码整洁之道》摘录总结 | https://cloud.tencent.cn/developer/article/1200004?from=15425
+  candidate 3: <<代码之丑>>06 | 长参数列表：如何处理不同类型的长参数？ | https://www.codefather.cn/post/1831584382470434817
+  candidate 4: 22个代码的坏味道 | https://www.cnblogs.com/jaxxiao/p/17550017.html
+  candidate 5: 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=36
+  candidate 1: [Effective JavaScript 笔记]第55条：接收关键字参数的选项对象 | https://www.cnblogs.com/wengxuesong/p/5640493.html
+  candidate 2: 《代码整洁之道》摘录总结 | https://cloud.tencent.cn/developer/article/1200004?from=15425
+  candidate 3: <<代码之丑>>06 | 长参数列表：如何处理不同类型的长参数？ | https://www.codefather.cn/post/1831584382470434817
+  candidate 4: 22个代码的坏味道 | https://www.cnblogs.com/jaxxiao/p/17550017.html
+  candidate 5: 代码的坏味道 | https://cloud.tencent.cn/developer/article/1798191
+  ... 31 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:14] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=28
+  candidate 1: 【Python】Python 字面量 ( Python 数据类型 | Python 字面量含义 | 使用 print 函数输出字面量 ) | https://cloud.tencent.com.cn/developer/article/2257550?from=15425
+  candidate 2: 代码的坏味道（4）——过长参数列(Long Parameter List) | https://www.qingruanit.net/blog/23930/note9607.html
+  candidate 3: 代码的坏味道（4）——过长参数列(Long Parameter List) | https://www.shuzhiduo.com/A/mo5k8aKdwR/
+  candidate 4: 代码难以阅读的原因：复杂的视觉模式 - 齐思 | https://news.miracleplus.com/share_link/63048
+  candidate 5: 关于JS字面量及其容易忽略的12个小问题 | https://cloud.tencent.cn/developer/article/1497084?from=15425
+  ... 23 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:15] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=33
+  candidate 1: 编程实践 - 仓颉编程语言编程规范 | http://docs.cangjie-lang.cn/cjnative/coding_style/source_zh_cn/Chapter_03_Programming_Practices.html#goth03-%E7%A6%81%E6%AD%A2%E4%BB%A3%E7%A0%81%E4%B8%AD%E5%8C%85%E5%90%AB%E5%85%AC%E7%BD%91%E5%9C%B0%E5%9D%80
+  candidate 2: 代码规范_51CTO博客_代码规范的重要性 | https://blog.51cto.com/u_15127565/3926580
+  candidate 3: 代码坏味道与重构之过长参数列表 | https://blog.csdn.net/qq_27283619/article/details/126576435
+  candidate 4: 代码语法样式：空值检查模式 | JetBrains Rider | https://www.jetbrains.com/zh-cn/help/rider/2025.2/Null_Checking_Pattern_Style.html#enforce-preferences
+  candidate 5: 服务端开发规范总结(持续更新) | https://juejin.cn/post/7129044929170374686
+  ... 28 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Search result set | query="参数个数" 代码 审查 视觉 指标 | candidates=40
+  candidate 1: 《代码整洁之道 Clean Code》学习笔记 Part 2 - 写出优雅的函数的10条建议 | https://www.cnblogs.com/tengzijian/p/17661048.html
+  candidate 2: 代码规范：换行对齐问题 | https://cloud.tencent.cn/developer/article/1179431?from=15425&frompage=seopage
+  candidate 3: 前端进阶6-ESLint + Prettier - Ⅲ、ESLint - 工作中用到的规则 | https://juejin.cn/post/7130056851898499109
+  candidate 4: 如何在Golang中实现功能选项或选项模式（附实例） | https://juejin.cn/post/7121590151708409886
+  candidate 5: 深入 GO 选项模式「附详细案例」 | https://juejin.cn/post/7332858431570984987
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [citation] 《D3.js数据可视化实战手册》—— 1.4 理解D3风格的JavaScript | https://developer.aliyun.com/article/96932
+- [citation] 20个实用的代码质量指标，复杂度与重复率 | https://www.e-com-net.com/article/1990146811226021888.htm
+- [citation] 参数核查框架——不同于jsc-303协议 | https://juejin.cn/post/6940991664433397774
+- [citation] 参数校验代码的一些思考_学源码 | https://blog.csdn.net/qq_42282200/article/details/107873071
+- [citation] 代码检查细则说明.doc | https://www.renrendoc.com/paper/222444928.html
+- [citation] 改善丑陋的代码——多参数函数优化(参数封装)_哔哩哔哩_bilibili | https://www.bilibili.com/video/BV1344y1Y7yy/
+- [citation] 函数参数的讨论 | https://www.cnblogs.com/cutepig/p/12693088.html
+- [citation] 函数参数个数确定的技巧 | https://www.zaixianjisuan.com/jisuanzixun/hanshucanshugeshuquedingdejiqiao.html
+- [citation] 函数组合与点无风格：FP中的代码简化艺术 | https://blog.csdn.net/weixin_35705784/article/details/147808325
+- [citation] 接口测试用例设计规范考虑哪些点 | http://www.51testing.com/mobile/view.php?itemid=7807088
+- [citation] 卷积神经网络各层的参数和链接个数计算 | https://developer.baidu.com/article/details/2722800
+- [citation] 问如果Javascript中的性能很重要，应该传递封装在对象中的函数参数吗？EN | https://cloud.tencent.com.cn/developer/ask/sof/109658065?from=16139
+- [citation] 校验值对象——应用Visitor模式和反射 | https://blog.csdn.net/liuya1985liuya/article/details/1671208
+- [citation] 一网打尽CodeReview要点(JAVA) | https://www.e-com-net.com/article/1730130590377783296.htm
+- [citation] 用于包装多行函数参数的Intellij代码样式设置 | https://cloud.tencent.cn/developer/information/%E7%94%A8%E4%BA%8E%E5%8C%85%E8%A3%85%E5%A4%9A%E8%A1%8C%E5%87%BD%E6%95%B0%E5%8F%82%E6%95%B0%E7%9A%84Intellij%E4%BB%A3%E7%A0%81%E6%A0%B7%E5%BC%8F%E8%AE%BE%E7%BD%AE-video
+- [citation] CentOS C++代码风格有哪些规范 | https://www.yisu.com/ask/58407041.html
+- [citation] cody17的博客 | https://blog.51cto.com/u_13108676/category1.html
+- [citation] Debian C++代码风格如何规范 | https://m.yisu.com/ask/98837355.html
+- [citation] dotnet 一些代码审查套路 | https://cloud.tencent.cn/developer/article/1781729?from=15425
+- [citation] js判断参数个数 | https://www.aliyun.com/sswd/10076172-1.html
+- [citation] RoslynAnalyzers Validate arguments of public methods | Inspectopedia | https://www.jetbrains.com/help/inspectopedia/CA1062.html?source=post_page-----99b5cea6c6ce----------------------
+- [citation] Wiki - Gitee.com | https://gitee.com/mindspore/docs/wikis/%E8%A7%84%E8%8C%83/API%E5%86%85%E5%AE%B9Checklist?sort_id=5767815
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: d8a396b0-c953-456d-8640-2fe4b5b465d2

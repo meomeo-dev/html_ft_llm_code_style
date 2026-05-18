@@ -1,0 +1,334 @@
+回复ID: CyclomaticComplexityVisualScale-20260518-001
+
+## 第1步：圈复杂度（Cyclomatic Complexity）的技术定义
+
+**核心摘要**：圈复杂度度量的是代码中独立执行路径的数量，在源代码层面主要表现为**判定节点（decision points）** 的计数，包括 if/else、switch/case、循环（for/while/do-while）、条件运算符（&&、||、?:）等。
+
+圈复杂度（Cyclomatic Complexity）由 Thomas J. McCabe 于 1976 年提出，其计算公式为 `V(G) = E − N + 2P`（E 为控制流图中的边数，N 为节点数，P 为连通分量数）。在源代码的简单计算中，**圈复杂度 = 判定节点总数 + 1**，每一个 if、else if、for、while、switch-case、catch、逻辑与（&&）、逻辑或（||）等均计为 1 个判定节点[reference:0][reference:1]。switch 中的每个 case（不包括 default）都会被计入[reference:2]。
+
+**关键区分**：圈复杂度是一个**定量度量（quantitative metric）**，计算的是独立路径条数，而非代码在屏幕上的视觉形态。SonarSource 明确指出，圈复杂度非常适合衡量**可测试性（testability）**，但不足以衡量**可维护性（maintainability）**——这正是后来引入认知复杂度（Cognitive Complexity）的原因[reference:3]。
+
+---
+
+## 第2步：圈复杂度与视觉外观的映射
+
+**核心摘要**：圈复杂度在屏幕上的可见表征并非直接对应“嵌套深度”，而是通过**判定节点的密集程度**和**控制流的铺开方式**间接呈现。高圈复杂度代码在视觉上有两种截然不同的表现形态。
+
+**形态一（Arrow Anti-pattern / 箭头反模式）** ：当判定节点以**嵌套**方式组织时，代码在屏幕上呈现为向右不断推进的锯齿状缩进，形似箭头指向右下方。这种形态被广泛称为 Arrowhead Anti-pattern（箭头反模式）或 Pyramid of Doom（厄运金字塔）。典型特征：每个嵌套的 if 条件使缩进加深一层，导致代码跨越数屏，需要水平滚动才能阅读[reference:4][reference:5]。一个极端的案例中，圈复杂度达到 49，最深缩进高达 15 个 tab[reference:6]。
+
+**形态二（Guards / 平铺守卫链）** ：当判定节点以**非嵌套**方式组织时（如使用 Guard Clauses / 提前返回），代码在视觉上保持平坦——所有守卫条件靠左对齐，if 块不嵌套。这种写法虽然**视觉缩进很浅，但圈复杂度数值未必低**，因为每个 guard 本身也是一个判定节点[reference:7][reference:8]。
+
+**关键边界案例**：Jeff Atwood（Coding Horror 创始人）指出：“一个完全平坦但包含 53 个 return 语句的函数，和一个 3000 字符宽的箭头函数一样病态”。两者之间的差异在于圈复杂度对判定节点的**计数方式**不因视觉排列方式而改变[reference:9]。
+
+**嵌套深度（Nesting Depth）与圈复杂度是两个独立但相关的指标**。静态分析通常同时关注三个指标：语句数量（Number of Statements）、语句嵌套深度（Statement Nested Depth）、圈复杂度[reference:10]。实验研究表明，嵌套深度与圈复杂度呈正相关趋势，但二者不可互相替代——深层嵌套不一定每层都有分支，平坦代码也不一定分支总数低[reference:11][reference:12]。
+
+---
+
+## 第3步：主流工具的规则与阈值
+
+**核心摘要**：业界主流工具对圈复杂度设定了明确的阈值，这些阈值与代码的“肉眼可见复杂度”之间有映射关系，但工具度量的是判定节点数量，而非视觉印象。
+
+- **ESLint（complexity 规则）** ：默认阈值为 **20**（最大圈复杂度），规则旨在限制程序中的圈复杂度，超过阈值时发出警告。示例代码中对最大值为 2 的情况给出了 `/*eslint complexity: ["error", 2]*/` 的配置[reference:13][reference:14]。
+- **SonarQube**：S1541 规则（部分语言）用于检测函数级圈复杂度，常见的质量门禁阈值为 **15**，部分场景下触发 warning 的阈值为 20。值得注意的是，SonarQube 已引入 Cognitive Complexity（认知复杂度）作为 S3776 规则的指标，认为后者比圈复杂度更好地反映可理解性，已在默认 Quality Profile 中优先使用认知复杂度[reference:15][reference:16]。
+- **CodeScene**：将圈复杂度描述为“粗略的复杂度度量”，但作为估算最少单元测试数量的实用方法[reference:17]。
+
+**工具视角的启示**：工具按照判定节点数量计算圈复杂度，阈值（如 20/15）对应的是“一个函数中大约有多少个 if/else/循环/switch-case 分支”。这与屏幕上的视觉印象存在差距——同样 15 个分支，全部提前返回看起来“平坦”，全部嵌套则看起来“锯齿”。
+
+---
+
+## 第4步：当前 0-5 档文案的逐档审查
+
+### 4.1 第 0 档
+
+> **原文**：“屏幕被层层嵌套的 if-else 和循环占据，缩进像锯齿般向右猛冲，一个函数可占据数屏”
+
+**审查结论：⚠️ 有偏差但可接受。**
+
+这描述的是典型的 Arrowhead Anti-pattern 的极端形态。“锯齿般向右猛冲”（indentation goes deep）、“占据数屏”准确地描述了高圈复杂度代码在嵌套最差情况下的视觉外观[reference:18]。“层层嵌套”直接对应了嵌套判定节点逐层递增的特征。
+
+**但存在的问题**：此档描述的是“嵌套深度高 + 圈复杂度高”的组合情况，而非纯粹的圈复杂度外观。极端平坦的高复杂度代码（大量 guard clause）在第 0 档中无法被覆盖。
+
+---
+
+### 4.2 第 1 档
+
+> **原文**：“锯齿边缘依旧明显，但偶尔出现平坦区域，嵌套深度稍缓，屏幕上的长条件链开始被空行打断”
+
+**审查结论：⚠️ 概念混杂。**
+
+此档引入了两个不同维度：“嵌套深度稍缓”（嵌套深度维度的改善）和“长条件链被空行打断”（代码排版/格式化维度的改善）。**用空行打断条件链不改变圈复杂度数值，也不直接反映分支密度的变化。** 这个描述更接近“代码排版风格”而非“圈复杂度的视觉表征”。
+
+---
+
+### 4.3 第 2 档
+
+> **原文**：“多数函数能完整显示在一屏内，条件分支像分散的小岛，缩进层次明显减少”
+
+**审查结论：❌ 混入了函数长度维度。**
+
+“多数函数能完整显示在一屏内”——这是**函数长度（LOC / Lines of Code）** 的视觉表征，不是圈复杂度的表征。一个 20 行但包含 10 个平铺 if 条件的函数可以在一屏内显示，但其圈复杂度是 11。一个 80 行但只有 3 个判定节点的函数可能超出一屏，但其圈复杂度仅为 4。
+
+“缩进层次明显减少”——再次回到嵌套深度维度。
+
+---
+
+### 4.4 第 3 档
+
+> **原文**：“代码块如同切好的豆腐块，控制流平整清晰，极少见到三层以上缩进，一眼可看到函数底部”
+
+**审查结论：❌ 嵌套深度 + 函数长度混入。**
+
+“极少见到三层以上缩进”是纯粹的**嵌套深度（Nesting Depth）** 指标，不是圈复杂度。“一眼可看到函数底部”是函数长度的视觉表现。一个三层缩进的单个深层 for 循环（圈复杂度可能仅为 2）和一个有 12 个 guard clause 的平坦函数（圈复杂度为 13）——按照此档描述，后者会因“控制流平整”而获得更高档位，但其圈复杂度实际上更高。
+
+---
+
+### 4.5 第 4 档
+
+> **原文**：“函数几乎呈现纯粹的直线流程，仅有零星的提前返回，深层嵌套几乎消失”
+
+**审查结论：❌ 提前返回模式与圈复杂度外观混淆。**
+
+“零星的提前返回（early return）”是一种**代码组织模式**，与圈复杂度的视觉表征存在复杂关系。如搜索材料所示，提前返回（Guard Clauses）可显著降低视觉嵌套深度，但不一定降低圈复杂度——每个 guard 本身就是一个判定节点[reference:19]。因此，“仅有零星的提前返回”可能描述的是圈复杂度低的代码，也可能描述的是把复杂条件链全部平铺的代码（圈复杂度依然高，只是视觉上平坦）[reference:20]。
+
+---
+
+### 4.6 第 5 档
+
+> **原文**：“极致扁平的视觉韵律，函数体从上到下一气呵成，几乎看不到第二层缩进”
+
+**审查结论：❌ 与圈复杂度外观脱节。**
+
+“极致扁平”、“几乎看不到第二层缩进”是完全的嵌套深度描述。如 Jeff Atwood 所言，一个极致扁平的函数可能有 53 个 return 语句，其圈复杂度极高但视觉缩进为零——这样的函数在第 5 档中会被评为满分，但圈复杂度角度上它是一个问题代码[reference:21]。
+
+---
+
+## 第5步：维度名称审查
+
+> **当前名称**：“圈复杂度限制（Cyclomatic Complexity Limit）”
+
+**审查结论：⚠️ 名称与内容不一致。**
+
+“圈复杂度”是一个精确的技术指标，其测量对象是**判定节点数量**决定的独立执行路径数。但当前 0-5 档文案实际描述的是**嵌套深度 + 函数长度 + 排版风格 + 提前返回模式**的混合视觉印象，与圈复杂度的直接视觉表征（分支密度在屏幕上的分布）存在系统性偏差。
+
+**更重要的是**：圈复杂度在视觉上具有两种截然不同的外观——箭头反模式（高嵌套）和守卫链（平坦但分支多），而当前量表只覆盖了前者，对后者完全失焦。如果量表的目的确实是“圈复杂度的视觉外观”，则需要在低档描述中区分“分支数量多”和“嵌套深度高”这两种不同的视觉表现。
+
+---
+
+## 第6步：整体评估
+
+### 6.1 单调性评估：⚠️ 部分单调但基于混合维度
+
+0→5 档在嵌套深度维度上单调递减（缩进从深到浅），但量表混入了多个不可加成的子维度：
+- 嵌套深度（所有档位均有涉及）
+- 函数长度 / 屏幕占比（第 2、3 档）
+- 空行打断 / 排版风格（第 1 档）
+- 提前返回模式（第 4 档）
+- 扁平程度（第 5 档）
+
+**结论：各档位在嵌套深度维度上单调，但整体量表不是一个单一维度的单调测量。**
+
+### 6.2 互斥性评估：❌ 存在概念重叠和混淆
+
+- 第 0 档与第 1 档均以“嵌套深度”为主要区分标准，差异模糊（“锯齿边缘明显” vs “偶尔出现平坦区域”）
+- 第 2 档与第 3 档均以“缩进层次减少”为区分标准，差异仅在于“分散小岛” vs “豆腐块”
+- 第 4 档与第 5 档均以“扁平/直线流程”为主要描述，差异仅在于“零星提前返回” vs “几乎看不到第二层缩进”
+
+**结论：相邻档位之间缺乏清晰的视觉区分标准，实际代码评审中难以明确归类。**
+
+### 6.3 维度边界评估：❌ 与圈复杂度指标的定义存在根本性偏离
+
+量表描述的并非圈复杂度（判定节点数量决定的分支密度）的视觉外观，而是以下混合体：
+1. 嵌套深度（Nesting Depth）
+2. 函数长度（LOC）
+3. 代码排版风格（Code Formatting）
+4. 提前返回/Guard Clause 模式（Coding Pattern）
+
+圈复杂度视觉量表的正确描述对象应为：**肉眼可见的分支结构密度——即 if/else、switch/case、循环、条件运算符在屏幕上的分布密度和排列方式**。
+
+---
+
+## 第7步：修改建议
+
+**结论：本维度需要修改。** 当前 0-5 档文案系统性混淆了嵌套深度、函数长度、排版风格与圈复杂度外观，且未覆盖“高分支密度但视觉平坦”的边界情况。
+
+### 替代文案（仅限本维度 6 条）
+
+**维度名称**：圈复杂度视觉密度（Cyclomatic Complexity Visual Density）
+
+**量表核心语义**：观察函数体内**肉眼可见的分支结构密度**——即 if/else、switch/case、循环、条件运算符（&&/||/?:）在屏幕上的出现频率与集中程度，而非嵌套深度或函数长度。
+
+| 档位 | 文案 |
+|------|------|
+| **0** | 函数体几乎由分支结构（if-else / 循环 / switch）堆砌而成，每两三行代码就出现一个判断节点，屏幕上的控制流如同密集的路网分岔，阅读视线被频繁的决策跳转打断 |
+| **1** | 分支节点仍然密集分布于函数各处，但中间开始夹杂小段无分支的直线代码，整体视觉上仍是“分支为主、直线为辅”的节奏 |
+| **2** | 分支节点与直线代码段落大约各占一半，函数内可见清晰的“分支区域”与“执行区域”交替出现，分支不再满屏铺开 |
+| **3** | 分支结构集中在函数开头（前置检查）或少数关键决策点，主体逻辑路径以连续的直线代码为主，分支密度明显降低 |
+| **4** | 仅有零星的必要分支点缀在主体流程中，大部分代码段无任何判断跳转，视觉上几乎可以忽略分支结构的存在 |
+| **5** | 函数体内几乎看不到任何显式分支结构（if / else / switch / 循环 / 条件运算符），控制流在屏幕上呈现为一条无岔路的纯直线路径 |
+
+### 修改说明
+
+1. **维度名称从“圈复杂度限制”改为“圈复杂度视觉密度”**：强调观察对象是“分支结构的出现密度”（即判定节点在屏幕上的频率），而非嵌套深度或阈值限制。
+2. **完全移除嵌套深度描述**：所有档位不再以“缩进层次”、“锯齿”、“扁平”为核心描述，而是以“分支结构（if-else/循环/switch）在屏幕上的出现频率和分布集中度”为唯一的视觉线索。
+3. **移除函数长度/屏幕占比/空行等无关维度**：确保量表是单一维度的测量（分支密度从高到低），每一档都能被肉眼独立判断。
+4. **覆盖两种视觉形态**：量表从“分支密集堆砌”（第 0 档涵盖嵌套和非嵌套两种情况下的高分支密度）过渡到“分支集中在前置检查区域”（第 3 档），最终到“无分支纯直线路径”（第 5 档），避免了高分支密度但视觉平坦代码的漏判。
+5. **档位之间保持单调且互斥**：每一档的分支密度（判定节点出现频率）严格递减，相邻档位之间有清晰的“分支占比”概念边界（几乎全是分支→分支为主→各半→集中在开头→零星→无分支），评审者可凭肉眼做出唯一归类。
+
+Citations:
+- [reference:0] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=24
+  candidate 1: [代码质量] 代码层圈复杂度计算统计（转) | https://www.cnblogs.com/0616--ataozhijia/p/11611901.html
+  candidate 2: [SystemSafety] Modelling and coding guidelines: "Unambiguous Graphical Representation" | https://lists.techfak.uni-bielefeld.de/pipermail/systemsafety/2016-March/002354.html
+  candidate 3: 代码层圈复杂度计算统计（转) | https://blog.csdn.net/weixin_33894992/article/details/90135067
+  candidate 4: 圈复杂度（Cyclomatic Complexity）详解 | https://www.baeldung-cn.com/cs/cyclomatic-complexity
+  candidate 5: 圈复杂度计算指南：5种工具对比帮你选出最佳方案（含SonarQube/Jacoco实战） | https://blog.csdn.net/weixin_30369041/article/details/159660638
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=24
+  candidate 1: [代码质量] 代码层圈复杂度计算统计（转) | https://www.cnblogs.com/0616--ataozhijia/p/11611901.html
+  candidate 2: [SystemSafety] Modelling and coding guidelines: "Unambiguous Graphical Representation" | https://lists.techfak.uni-bielefeld.de/pipermail/systemsafety/2016-March/002354.html
+  candidate 3: 代码层圈复杂度计算统计（转) | https://blog.csdn.net/weixin_33894992/article/details/90135067
+  candidate 4: 圈复杂度（Cyclomatic Complexity）详解 | https://www.baeldung-cn.com/cs/cyclomatic-complexity
+  candidate 5: 圈复杂度计算指南：5种工具对比帮你选出最佳方案（含SonarQube/Jacoco实战） | https://blog.csdn.net/weixin_30369041/article/details/159660638
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=24
+  candidate 1: [代码质量] 代码层圈复杂度计算统计（转) | https://www.cnblogs.com/0616--ataozhijia/p/11611901.html
+  candidate 2: [SystemSafety] Modelling and coding guidelines: "Unambiguous Graphical Representation" | https://lists.techfak.uni-bielefeld.de/pipermail/systemsafety/2016-March/002354.html
+  candidate 3: 代码层圈复杂度计算统计（转) | https://blog.csdn.net/weixin_33894992/article/details/90135067
+  candidate 4: 圈复杂度（Cyclomatic Complexity）详解 | https://www.baeldung-cn.com/cs/cyclomatic-complexity
+  candidate 5: 圈复杂度计算指南：5种工具对比帮你选出最佳方案（含SonarQube/Jacoco实战） | https://blog.csdn.net/weixin_30369041/article/details/159660638
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=35
+  candidate 1: [PDF] Understanding Code Smell Detection via Code Review: A Study of the OpenStack Community | Semantic Scholar | https://www.semanticscholar.org/paper/Understanding-Code-Smell-Detection-via-Code-Review%3A-Han-Tahir/b4c2e10e1885d4fb194636fd675572be2da00def
+  candidate 2: 🔒 Code Smell 296 - Unhappy to the Right | https://tsecurity.de/de/2721525/IT+Programmierung/Code+Smell+296+-+Unhappy+to+the+Right/
+  candidate 3: 04 2018 档案 | https://www.cnblogs.com/wzqyekong/p/archive/2018/04
+  candidate 4: 18F blog archive | What is static source analysis? | https://blog.18f.org/2016/10/04/what-is-static-source-analysis/#cyclomatic-complexity
+  candidate 5: 2 Simple Tips To Clean Nested IF/ELSE Conditions. | https://dev.to/rhuzaifa/2-simple-tips-to-clean-nested-if-else-conditions-2kn4#comments
+  ... 30 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=35
+  candidate 1: [PDF] Understanding Code Smell Detection via Code Review: A Study of the OpenStack Community | Semantic Scholar | https://www.semanticscholar.org/paper/Understanding-Code-Smell-Detection-via-Code-Review%3A-Han-Tahir/b4c2e10e1885d4fb194636fd675572be2da00def
+  candidate 2: 🔒 Code Smell 296 - Unhappy to the Right | https://tsecurity.de/de/2721525/IT+Programmierung/Code+Smell+296+-+Unhappy+to+the+Right/
+  candidate 3: 04 2018 档案 | https://www.cnblogs.com/wzqyekong/p/archive/2018/04
+  candidate 4: 18F blog archive | What is static source analysis? | https://blog.18f.org/2016/10/04/what-is-static-source-analysis/#cyclomatic-complexity
+  candidate 5: 2 Simple Tips To Clean Nested IF/ELSE Conditions. | https://dev.to/rhuzaifa/2-simple-tips-to-clean-nested-if-else-conditions-2kn4#comments
+  ... 30 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=35
+  candidate 1: [PDF] Understanding Code Smell Detection via Code Review: A Study of the OpenStack Community | Semantic Scholar | https://www.semanticscholar.org/paper/Understanding-Code-Smell-Detection-via-Code-Review%3A-Han-Tahir/b4c2e10e1885d4fb194636fd675572be2da00def
+  candidate 2: 🔒 Code Smell 296 - Unhappy to the Right | https://tsecurity.de/de/2721525/IT+Programmierung/Code+Smell+296+-+Unhappy+to+the+Right/
+  candidate 3: 04 2018 档案 | https://www.cnblogs.com/wzqyekong/p/archive/2018/04
+  candidate 4: 18F blog archive | What is static source analysis? | https://blog.18f.org/2016/10/04/what-is-static-source-analysis/#cyclomatic-complexity
+  candidate 5: 2 Simple Tips To Clean Nested IF/ELSE Conditions. | https://dev.to/rhuzaifa/2-simple-tips-to-clean-nested-if-else-conditions-2kn4#comments
+  ... 30 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=35
+  candidate 1: [PDF] Understanding Code Smell Detection via Code Review: A Study of the OpenStack Community | Semantic Scholar | https://www.semanticscholar.org/paper/Understanding-Code-Smell-Detection-via-Code-Review%3A-Han-Tahir/b4c2e10e1885d4fb194636fd675572be2da00def
+  candidate 2: 🔒 Code Smell 296 - Unhappy to the Right | https://tsecurity.de/de/2721525/IT+Programmierung/Code+Smell+296+-+Unhappy+to+the+Right/
+  candidate 3: 04 2018 档案 | https://www.cnblogs.com/wzqyekong/p/archive/2018/04
+  candidate 4: 18F blog archive | What is static source analysis? | https://blog.18f.org/2016/10/04/what-is-static-source-analysis/#cyclomatic-complexity
+  candidate 5: 2 Simple Tips To Clean Nested IF/ELSE Conditions. | https://dev.to/rhuzaifa/2-simple-tips-to-clean-nested-if-else-conditions-2kn4#comments
+  ... 30 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=35
+  candidate 1: [PDF] Understanding Code Smell Detection via Code Review: A Study of the OpenStack Community | Semantic Scholar | https://www.semanticscholar.org/paper/Understanding-Code-Smell-Detection-via-Code-Review%3A-Han-Tahir/b4c2e10e1885d4fb194636fd675572be2da00def
+  candidate 2: 🔒 Code Smell 296 - Unhappy to the Right | https://tsecurity.de/de/2721525/IT+Programmierung/Code+Smell+296+-+Unhappy+to+the+Right/
+  candidate 3: 04 2018 档案 | https://www.cnblogs.com/wzqyekong/p/archive/2018/04
+  candidate 4: 18F blog archive | What is static source analysis? | https://blog.18f.org/2016/10/04/what-is-static-source-analysis/#cyclomatic-complexity
+  candidate 5: 2 Simple Tips To Clean Nested IF/ELSE Conditions. | https://dev.to/rhuzaifa/2-simple-tips-to-clean-nested-if-else-conditions-2kn4#comments
+  ... 30 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=24
+  candidate 1: [代码质量] 代码层圈复杂度计算统计（转) | https://www.cnblogs.com/0616--ataozhijia/p/11611901.html
+  candidate 2: [SystemSafety] Modelling and coding guidelines: "Unambiguous Graphical Representation" | https://lists.techfak.uni-bielefeld.de/pipermail/systemsafety/2016-March/002354.html
+  candidate 3: 代码层圈复杂度计算统计（转) | https://blog.csdn.net/weixin_33894992/article/details/90135067
+  candidate 4: 圈复杂度（Cyclomatic Complexity）详解 | https://www.baeldung-cn.com/cs/cyclomatic-complexity
+  candidate 5: 圈复杂度计算指南：5种工具对比帮你选出最佳方案（含SonarQube/Jacoco实战） | https://blog.csdn.net/weixin_30369041/article/details/159660638
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:14] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=24
+  candidate 1: [代码质量] 代码层圈复杂度计算统计（转) | https://www.cnblogs.com/0616--ataozhijia/p/11611901.html
+  candidate 2: [SystemSafety] Modelling and coding guidelines: "Unambiguous Graphical Representation" | https://lists.techfak.uni-bielefeld.de/pipermail/systemsafety/2016-March/002354.html
+  candidate 3: 代码层圈复杂度计算统计（转) | https://blog.csdn.net/weixin_33894992/article/details/90135067
+  candidate 4: 圈复杂度（Cyclomatic Complexity）详解 | https://www.baeldung-cn.com/cs/cyclomatic-complexity
+  candidate 5: 圈复杂度计算指南：5种工具对比帮你选出最佳方案（含SonarQube/Jacoco实战） | https://blog.csdn.net/weixin_30369041/article/details/159660638
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:15] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=24
+  candidate 1: [代码质量] 代码层圈复杂度计算统计（转) | https://www.cnblogs.com/0616--ataozhijia/p/11611901.html
+  candidate 2: [SystemSafety] Modelling and coding guidelines: "Unambiguous Graphical Representation" | https://lists.techfak.uni-bielefeld.de/pipermail/systemsafety/2016-March/002354.html
+  candidate 3: 代码层圈复杂度计算统计（转) | https://blog.csdn.net/weixin_33894992/article/details/90135067
+  candidate 4: 圈复杂度（Cyclomatic Complexity）详解 | https://www.baeldung-cn.com/cs/cyclomatic-complexity
+  candidate 5: 圈复杂度计算指南：5种工具对比帮你选出最佳方案（含SonarQube/Jacoco实战） | https://blog.csdn.net/weixin_30369041/article/details/159660638
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:17] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=35
+  candidate 1: [PDF] Understanding Code Smell Detection via Code Review: A Study of the OpenStack Community | Semantic Scholar | https://www.semanticscholar.org/paper/Understanding-Code-Smell-Detection-via-Code-Review%3A-Han-Tahir/b4c2e10e1885d4fb194636fd675572be2da00def
+  candidate 2: 🔒 Code Smell 296 - Unhappy to the Right | https://tsecurity.de/de/2721525/IT+Programmierung/Code+Smell+296+-+Unhappy+to+the+Right/
+  candidate 3: 04 2018 档案 | https://www.cnblogs.com/wzqyekong/p/archive/2018/04
+  candidate 4: 18F blog archive | What is static source analysis? | https://blog.18f.org/2016/10/04/what-is-static-source-analysis/#cyclomatic-complexity
+  candidate 5: 2 Simple Tips To Clean Nested IF/ELSE Conditions. | https://dev.to/rhuzaifa/2-simple-tips-to-clean-nested-if-else-conditions-2kn4#comments
+  ... 30 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:18] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:19] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:20] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=35
+  candidate 1: [PDF] Understanding Code Smell Detection via Code Review: A Study of the OpenStack Community | Semantic Scholar | https://www.semanticscholar.org/paper/Understanding-Code-Smell-Detection-via-Code-Review%3A-Han-Tahir/b4c2e10e1885d4fb194636fd675572be2da00def
+  candidate 2: 🔒 Code Smell 296 - Unhappy to the Right | https://tsecurity.de/de/2721525/IT+Programmierung/Code+Smell+296+-+Unhappy+to+the+Right/
+  candidate 3: 04 2018 档案 | https://www.cnblogs.com/wzqyekong/p/archive/2018/04
+  candidate 4: 18F blog archive | What is static source analysis? | https://blog.18f.org/2016/10/04/what-is-static-source-analysis/#cyclomatic-complexity
+  candidate 5: 2 Simple Tips To Clean Nested IF/ELSE Conditions. | https://dev.to/rhuzaifa/2-simple-tips-to-clean-nested-if-else-conditions-2kn4#comments
+  ... 30 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:21] Search result set | query=high cyclomatic complexity flat code many guards no nesting | candidates=25
+  candidate 1: 3.3 View of coding details | https://www.programmersought.com/article/66574907738/
+  candidate 2: Bumpy Road | http://www.sammancoaching.org/code_smells/bumpy_road.html
+  candidate 3: Cleaner Code: Tackling Arrowhead Anti-Pattern - Comviva | https://legacy.comviva.com/blog/cleaner-code-tackling-arrowhead-anti-pattern/#searchbox
+  candidate 4: Cognitive Complexity, Because Testability != Understandability | https://www.sonarsource.com/ko/blog/cognitive-complexity-because-testability-understandability
+  candidate 5: Cyclomatic complexity at class level | https://community.sonarsource.com/t/cyclomatic-complexity-at-class-level/139708/4
+  ... 20 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 8c816a7c-7b63-447c-bf36-31915b7a5be2

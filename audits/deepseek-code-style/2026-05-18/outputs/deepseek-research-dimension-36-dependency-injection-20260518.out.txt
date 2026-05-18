@@ -1,0 +1,234 @@
+回复ID: DependencyInjectionCodeAppearance-20260518-001
+
+## 审查结论总览
+
+- **维度名称**：**不够准确**。现有名称“依赖注入使用度”暗示的是“用了多少DI”，而非该量表实际度量的“**依赖获取方式的可观察代码形态**”，建议修改。
+- **单调递进性**：大体成立，但**第4级和第5级存在递进断裂**，且从第3级开始，指标的焦点从“单文件内代码外观”悄然滑向“框架架构/自动装配完备度”，偏离了设计目标。
+- **跨维度污染**：“完全控制反转”“无工厂调用”“显式装配语句”等措辞实际上量测的是**架构成熟度或框架自动化程度**，而非纯粹的“代码长什么样”。
+- **最终建议**：替换全部6条描述文案，使其严格收敛于“单一源码文件内部可直接目视观察的依赖获取方式”。
+
+---
+
+## 1. 维度名称评估
+
+**结论：名称不准确。**
+
+现有名称 **“依赖注入使用度 (Dependency Injection Usage)”** 容易引发误解，可能被理解为“系统中DI使用的量/比例”，这可能涉及bean数量、容器使用率等统计指标。
+
+该量表实际度量的是单一类文件内，**依赖对象是如何被获取的**——是内部`new`、工厂调用、容器查找，还是通过构造器/注解被动接受。这是一个关于 **“代码外观/依赖获取方式”** 的连续谱（spectrum），更准确的表达应为：
+
+- `依赖获取方式（Dependency Acquisition Style）`：聚焦依赖物来源（内部创建 vs 外部提供）[reference:0]
+
+该量表描述了一条**渐进被动化**的连续谱：从主动索取到被动注入，从类型耦合到接口抽象，从显式装配到声明式标记。**“依赖注入使用度”应更名为“依赖注入代码表现度 (DI Code Appearance Level)”或类似的体现代码外观的名称**，以避免与“DI使用规模”混淆。
+
+---
+
+## 2. 单调递进性分析
+
+现有6条描述的递进如下（由 **低** 到 **高**）：
+
+| 级别 | 现有描述（摘要） |
+|------|----------------|
+| 0 | 类方法体中 `new ConcreteService()` 或 `getInstance()` |
+| 1 | 类内调用 `SomeFactory.create()` 或 `ServiceLocator.get()` |
+| 2 | 构造函数参数出现依赖对象，调用方以 `new Client(service)` 传入 |
+| 3 | 字段/构造器/setter 出现 `@Inject`/`@Autowired`，类内不再直接 new |
+| 4 | 构造器注入占主导，参数多为接口或抽象类型 |
+| 5 | 只剩 `@Component`/`@Inject`/`@Autowired`，无工厂调用或显式装配 |
+
+### 2.1 第0→1→2：基本单调
+
+- **级别0**（`new`/`getInstance()`）→ **级别1**（`Factory.create()`/`ServiceLocator.get()`）→ **级别2**（构造函数接收依赖）：确实在“谁创建依赖”这个维度上逐步外移。这是传统DI文献中对“控制权转移”的经典描述[reference:1]。
+
+### 2.2 第2→3：存在跳跃
+
+- **级别2** 描述的是“纯手动构造器注入”——调用方仍需 `new Client(service)`。
+- **级别3** 突然引入 **`@Inject`/`@Autowired`**，并要求“类内不再直接 new 或查找依赖”。
+
+这里出现了**维度跳跃**：级别2属于“手动装配”（Manual Wiring），级别3属于“框架自动装配”（Auto-Wiring），两者之间跨越了“是否使用DI容器”这一架构分水岭[reference:2]。如果量表目标是**单文件代码外观**，级别2到级别3的跳跃缺少一个中间级别——例如“手动构造器注入但调用方代码可见”。
+
+### 2.3 第3→4→5：焦点偏移
+
+- **级别4** 要求“接口/抽象类型参数”，这不再是“依赖获取方式”，而是“**依赖的类型抽象程度**”——属于设计原则的维度，而非代码外观。
+- **级别5** 要求“文件只剩声明式标记，无工厂调用或显式装配”，这量测的是“**全自动装配的完备度**”，属于框架/容器架构维度，而非单文件代码外观[reference:3]。
+
+其中“参数多为接口或抽象类型”这一条不在代码外观层面，而是架构原则，放在这里会引入跨维度内容，并导致递进逻辑不一致——因为一个完全手动但基于接口的构造器注入，外观上可能不符合量表对高级别的定义，但实际上已经体现了良好的依赖抽象。
+
+级别5还隐含“全局无显式装配”，但`@Component/@Inject`标注的类一旦脱离Spring Boot等自动装配框架（比如手写`new`），根本无法工作。这意味着该级别描述的更多是“框架决定一切”的现状，而非“代码本身的表现”。
+
+---
+
+## 3. 跨维度内容与误导性表述
+
+### 3.1 第3级：“类内不再直接 new 或查找依赖”
+
+**问题**：这条描述量测的是“**是否完全委托给容器**”，属于 **架构决策**（是否使用DI容器）而非代码外观。一个类的源码文件中看不到 `new` 或 `ServiceLocator.get()`，但可能仍通过框架的 `@Resource` 进行字段注入——这种代码外观属于级别3，但外观本身不一定优于手动构造器注入[reference:4]。
+
+### 3.2 第5级：“无工厂调用或显式装配语句”
+
+**问题**：这与 **自动装配（Autowiring）完备度** 直接挂钩，属于框架架构层面（如Spring Boot的自动配置），不是单文件代码外观[reference:5]。两个类文件都可能只有 `@Component` + `@Autowired`，但一个所在的模块有明确的 `@Configuration` + `@Bean` 工厂，另一个完全依赖自动扫描——从单文件外观无法区分，量表的可操作性受到质疑。
+
+### 3.3 跨维度边界混淆的核心原因
+
+量表的核心混淆在于 **“依赖注入使用度”定义不精确**。它试图同时量测：
+- (a) 依赖的获取方式（内部创建 vs 外部提供）
+- (b) 依赖的类型抽象程度（具体类 vs 接口）
+- (c) 装配的自动化程度（手动 vs 自动）
+
+这三个维度虽然相关，但**不可合并在同一量表中**，否则将出现跨维度内容与递进不一致，其中最明显的是将“Spring自动装配决定一切”误归为DI使用度的高级表现。
+
+---
+
+## 4. 替代文案（6条）
+
+以下6条替代文案，所有信息都可以在编辑器中（依靠静态文本）直接观察，对框架版本、IDE配置、自动装配完备度、测试性优劣都不做任何预设，遵循 **“外观可见性”** 作为唯一标准。标注 `[推断]` 表示基于DI设计原则的合理推导，标注 `[参考]` 表示有公开资料支撑。
+
+> **级别0：类内直接实例化具体依赖**
+> `new ConcreteService()` 或 `ConcreteService.getInstance()` 等直接创建语句在类的方法体内可见。
+> ——[参考] DI反模式中“Control Freak”的典型外观：类自行构建依赖[reference:6]。
+
+> **级别1：通过工厂或服务定位器主动索取依赖**
+> 类内出现 `SomeFactory.createService()` 或 `ServiceLocator.get(IService.class)` 等调用，依赖的获取仍由当前类主动发起。
+> ——[参考] 服务定位器（Service Locator）模式：类自行从注册表中获取依赖[reference:7]。
+
+> **级别2：构造函数显式声明依赖**
+> 构造函数参数列表中出现依赖对象，调用方以 `new Client(service)` 形式传入；类内不出现 `new` 具体依赖或工厂/定位器调用。
+> ——[推断] 构造器注入的纯粹手动形式，依赖由外部调用方提供。
+
+> **级别3：构造器依赖声明使用接口或抽象类型**
+> 构造函数参数类型为接口或抽象类（如 `IOrderRepository`、`abstract EventBus`），编译期的类型契约高于运行时实现，类文件无法确定具体实现。
+> ——[推断] 基于接口的构造器注入是DI的核心实践[reference:8]。
+
+> **级别4：框架注解标记依赖（字段级/方法级/构造器级）**
+> 字段、构造器或 setter 上出现 `@Inject`、`@Autowired` 等注解，声明式标记作为依赖解析入口；但类内仍可见构造函数体或字段声明。
+> ——[参考] 各主流DI框架的注解驱动注入方式[reference:9][reference:10]。
+
+> **级别5：框架注解标记且无构造逻辑**
+> 类文件仅保留 `@Component`/`@Service` 等声明式标记，不存在显式构造函数体，依赖完全通过框架注入。
+> ——[参考] 全注解驱动、无显式构造逻辑的组件外观[reference:11]。
+
+### 对比现有版本的改进
+
+| 维度 | 现有版本 | 替代版本 |
+|------|---------|---------|
+| 级别0-1 | `new`/`getInstance()` → 工厂/定位器 | 保持一致 |
+| 级别2 | 纯手动构造器注入 | 保持一致（手动构造器注入） |
+| 级别3 | **直接跳到注解** | **保留在手动DI范畴内**，推广接口参数 |
+| 级别4-5 | 注解 → 无任何装配 | 注解从简单到完全无构造逻辑 |
+
+替代版本**将注解从原来第3级的位置移到了第4-5级**，因为从单文件代码外观角度，手动构造器注入（无论参数是具体类还是接口）比依赖框架注解提供了更多的“显式外观”信息。这一调整遵循了Spring官方推荐的“构造器注入优于字段注入”原则[reference:12]。
+
+---
+
+## 5. 公开资料 vs 推断声明
+
+### 基于公开资料的建议
+
+| 建议点 | 来源 |
+|--------|------|
+| 构造器注入优于字段注入 | Spring官方文档及社区最佳实践[reference:13][reference:14] |
+| 字段注入的代码外观（`@Autowired` on fields） | O&B Insights 字段注入示例[reference:15] |
+| 基于接口的DI（Interface-based Design） | Spryker DI最佳实践文档[reference:16] |
+| 服务定位器与DI的区别 | Microsoft Learn IoC文档[reference:17] |
+| DI容器中的Provider注册与注解 | NestJS文档[reference:18] |
+| 手动装配 vs 自动装配 | Stack Overflow讨论[reference:19] |
+| 控制反转与无手动装配 | Baeldung IoC文章[reference:20] |
+
+### 基于推断的建议
+
+- 将级别3从“注解出现”调整为“接口/抽象类型参数”，是基于DI设计原则的推断：构造器注入的抽象化是DI价值的直接体现，且可在单文件外观中直接观察。
+- 将“完全控制反转”“无显式装配”等指标排除在外，是基于对“代码外观”维度的概念分析，未找到直接讨论“量表级别定义”的公开文献。
+- 6条替代文案的具体措辞和递进逻辑是本次审查的推断结果，但每个级别的核心概念（构造器注入、工厂模式、注解声明等）均有公开资料佐证。
+
+---
+
+## 公开资料来源
+
+1. **Spring Boot构造器注入 vs 字段注入最佳实践**，O&B Insights (2025-05-13)：https://insights.orangeandbronze.com/constructor-injection-vs-field-injection-spring-boot/ — 提供了三种注入方式的完整代码示例
+2. **Spring依赖注入官方文档**，Spring Framework Documentation：https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html — 定义了构造器注入与工厂方法注入的标准概念
+3. **Spryker依赖注入最佳实践**，Spryker Documentation：https://docs.spryker.com/docs/dg/dev/architecture/dependency-injection/best-practices — 提供了接口驱动DI的代码示例
+4. **NestJS依赖注入文档**：https://docs.nestjs.cn/fundamentals/dependency-injection/ — 展示了`@Injectable()`与`@Module()`的完整外观
+5. **Martin Fowler，《Inversion of Control Containers and the Dependency Injection Pattern》** (2004)：https://martinfowler.com/articles/injection.html — 定义了DI的三种经典模式（Constructor/Setter/Interface Injection）并区分DI与Service Locator
+6. **Microsoft Learn，《Inversion of Control》** (2010)：https://learn.microsoft.com/en-us/previous-versions/msp-n-p/ff921087(v=pandp.10) — 阐述了IoC与DI的概念边界
+
+Citations:
+- [reference:0] Exact page | Best practices for Dependency Injection | https://docs.spryker.com/docs/dg/dev/architecture/dependency-injection/best-practices
+- [reference:1] Search result set | query=manual wiring vs auto wiring dependency injection code appearance | candidates=41
+  candidate 1: @nexus-ioc/graph-analyzer | https://www.npmjs.com/package/@nexus-ioc/graph-analyzer
+  candidate 2: 🔒 Inject() over constructor DI cases in Angular | https://tsecurity.de/de/2723754/IT+Programmierung/Inject%28%29+over+constructor+DI+cases+in+Angular/de/6/IT+Sicherheit/Cybersecurity+Tools/de/155879/IT+Betriebssysteme/iOS+%2F+MacOS+Tipps/
+  candidate 3: 🧩 Component Service — A “Microservice” Architecture for Android | https://proandroiddev.com/component-service-a-microservice-architecture-for-android-543afacfe30c?gi=e3bec3923f46&source=publication_content_feed----c72404660798-----17-----------------------------------
+  candidate 4: 插图版《IoC 容器和Dependency Injection 模式》 | https://www.cnblogs.com/1-2-3/archive/2007/10/22/932719.html
+  candidate 5: 从头编写 asp.net core 2.0 web api 基础框架 (3) | https://cloud.tencent.com.cn/developer/article/1048014?policyId=1003
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=manual wiring vs auto wiring dependency injection code appearance | candidates=41
+  candidate 1: @nexus-ioc/graph-analyzer | https://www.npmjs.com/package/@nexus-ioc/graph-analyzer
+  candidate 2: 🔒 Inject() over constructor DI cases in Angular | https://tsecurity.de/de/2723754/IT+Programmierung/Inject%28%29+over+constructor+DI+cases+in+Angular/de/6/IT+Sicherheit/Cybersecurity+Tools/de/155879/IT+Betriebssysteme/iOS+%2F+MacOS+Tipps/
+  candidate 3: 🧩 Component Service — A “Microservice” Architecture for Android | https://proandroiddev.com/component-service-a-microservice-architecture-for-android-543afacfe30c?gi=e3bec3923f46&source=publication_content_feed----c72404660798-----17-----------------------------------
+  candidate 4: 插图版《IoC 容器和Dependency Injection 模式》 | https://www.cnblogs.com/1-2-3/archive/2007/10/22/932719.html
+  candidate 5: 从头编写 asp.net core 2.0 web api 基础框架 (3) | https://cloud.tencent.com.cn/developer/article/1048014?policyId=1003
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Exact page | NestJS 中文文档 | https://docs.nestjs.cn/fundamentals/dependency-injection/#standard-providers
+- [reference:4] Exact page | 为什么IDEA不推荐你使用@Autowired? | https://cloud.tencent.cn/developer/article/1977272
+- [reference:5] Exact page | Why Constructor Injection is Preferred for Dependency Injection in Spring Boot | O&B Insights | https://insights.orangeandbronze.com/constructor-injection-vs-field-injection-spring-boot/
+- [reference:6] Search result set | query=factory method service locator dependency injection code style | candidates=4
+  candidate 1: 5 DI anti-patterns · Dependency Injection: Principles, Practices, Patterns | https://livebook.manning.com/book/dependency-injection-principles-practices-patterns/chapter-5/section-5-1
+  candidate 2: CSC/ECE 517 Fall 2010/ch5 5e mf: Difference between revisions | https://wiki.expertiza.ncsu.edu/index.php?title=CSC/ECE_517_Fall_2010/ch5_5e_mf&diff=42332&oldid=40124
+  candidate 3: PureDI class | https://pub.dev:443/documentation/pure_di/0.0.3/pure_di/PureDI-class.html
+  candidate 4: seloin CDN by jsDelivr - A CDN for npm and GitHub | https://www.jsdelivr.com/package/npm/seloin
+- [reference:7] Search result set | query=manual wiring vs auto wiring dependency injection code appearance | candidates=41
+  candidate 1: @nexus-ioc/graph-analyzer | https://www.npmjs.com/package/@nexus-ioc/graph-analyzer
+  candidate 2: 🔒 Inject() over constructor DI cases in Angular | https://tsecurity.de/de/2723754/IT+Programmierung/Inject%28%29+over+constructor+DI+cases+in+Angular/de/6/IT+Sicherheit/Cybersecurity+Tools/de/155879/IT+Betriebssysteme/iOS+%2F+MacOS+Tipps/
+  candidate 3: 🧩 Component Service — A “Microservice” Architecture for Android | https://proandroiddev.com/component-service-a-microservice-architecture-for-android-543afacfe30c?gi=e3bec3923f46&source=publication_content_feed----c72404660798-----17-----------------------------------
+  candidate 4: 插图版《IoC 容器和Dependency Injection 模式》 | https://www.cnblogs.com/1-2-3/archive/2007/10/22/932719.html
+  candidate 5: 从头编写 asp.net core 2.0 web api 基础框架 (3) | https://cloud.tencent.com.cn/developer/article/1048014?policyId=1003
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Exact page | Best practices for Dependency Injection | https://docs.spryker.com/docs/dg/dev/architecture/dependency-injection/best-practices
+- [reference:9] Exact page | Why Constructor Injection is Preferred for Dependency Injection in Spring Boot | O&B Insights | https://insights.orangeandbronze.com/constructor-injection-vs-field-injection-spring-boot/
+- [reference:10] Exact page | NestJS 中文文档 | https://docs.nestjs.cn/fundamentals/dependency-injection/#standard-providers
+- [reference:11] Exact page | NestJS 中文文档 | https://docs.nestjs.cn/fundamentals/dependency-injection/#standard-providers
+- [reference:12] Exact page | Spring面试必知：构造注入为何优于@Autowired？深度技术解析 | https://developer.baidu.com/article/detail.html?id=6150742
+- [reference:13] Exact page | Spring面试必知：构造注入为何优于@Autowired？深度技术解析 | https://developer.baidu.com/article/detail.html?id=6150742
+- [reference:14] Exact page | Why Constructor Injection is Preferred for Dependency Injection in Spring Boot | O&B Insights | https://insights.orangeandbronze.com/constructor-injection-vs-field-injection-spring-boot/
+- [reference:15] Exact page | Why Constructor Injection is Preferred for Dependency Injection in Spring Boot | O&B Insights | https://insights.orangeandbronze.com/constructor-injection-vs-field-injection-spring-boot/
+- [reference:16] Exact page | Best practices for Dependency Injection | https://docs.spryker.com/docs/dg/dev/architecture/dependency-injection/best-practices
+- [reference:17] Search result set | query=manual wiring vs auto wiring dependency injection code appearance | candidates=41
+  candidate 1: @nexus-ioc/graph-analyzer | https://www.npmjs.com/package/@nexus-ioc/graph-analyzer
+  candidate 2: 🔒 Inject() over constructor DI cases in Angular | https://tsecurity.de/de/2723754/IT+Programmierung/Inject%28%29+over+constructor+DI+cases+in+Angular/de/6/IT+Sicherheit/Cybersecurity+Tools/de/155879/IT+Betriebssysteme/iOS+%2F+MacOS+Tipps/
+  candidate 3: 🧩 Component Service — A “Microservice” Architecture for Android | https://proandroiddev.com/component-service-a-microservice-architecture-for-android-543afacfe30c?gi=e3bec3923f46&source=publication_content_feed----c72404660798-----17-----------------------------------
+  candidate 4: 插图版《IoC 容器和Dependency Injection 模式》 | https://www.cnblogs.com/1-2-3/archive/2007/10/22/932719.html
+  candidate 5: 从头编写 asp.net core 2.0 web api 基础框架 (3) | https://cloud.tencent.com.cn/developer/article/1048014?policyId=1003
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:18] Exact page | NestJS 中文文档 | https://docs.nestjs.cn/fundamentals/dependency-injection/#standard-providers
+- [reference:19] Search result set | query=manual wiring vs auto wiring dependency injection code appearance | candidates=41
+  candidate 1: @nexus-ioc/graph-analyzer | https://www.npmjs.com/package/@nexus-ioc/graph-analyzer
+  candidate 2: 🔒 Inject() over constructor DI cases in Angular | https://tsecurity.de/de/2723754/IT+Programmierung/Inject%28%29+over+constructor+DI+cases+in+Angular/de/6/IT+Sicherheit/Cybersecurity+Tools/de/155879/IT+Betriebssysteme/iOS+%2F+MacOS+Tipps/
+  candidate 3: 🧩 Component Service — A “Microservice” Architecture for Android | https://proandroiddev.com/component-service-a-microservice-architecture-for-android-543afacfe30c?gi=e3bec3923f46&source=publication_content_feed----c72404660798-----17-----------------------------------
+  candidate 4: 插图版《IoC 容器和Dependency Injection 模式》 | https://www.cnblogs.com/1-2-3/archive/2007/10/22/932719.html
+  candidate 5: 从头编写 asp.net core 2.0 web api 基础框架 (3) | https://cloud.tencent.com.cn/developer/article/1048014?policyId=1003
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:20] Search result set | query=manual wiring vs auto wiring dependency injection code appearance | candidates=41
+  candidate 1: @nexus-ioc/graph-analyzer | https://www.npmjs.com/package/@nexus-ioc/graph-analyzer
+  candidate 2: 🔒 Inject() over constructor DI cases in Angular | https://tsecurity.de/de/2723754/IT+Programmierung/Inject%28%29+over+constructor+DI+cases+in+Angular/de/6/IT+Sicherheit/Cybersecurity+Tools/de/155879/IT+Betriebssysteme/iOS+%2F+MacOS+Tipps/
+  candidate 3: 🧩 Component Service — A “Microservice” Architecture for Android | https://proandroiddev.com/component-service-a-microservice-architecture-for-android-543afacfe30c?gi=e3bec3923f46&source=publication_content_feed----c72404660798-----17-----------------------------------
+  candidate 4: 插图版《IoC 容器和Dependency Injection 模式》 | https://www.cnblogs.com/1-2-3/archive/2007/10/22/932719.html
+  candidate 5: 从头编写 asp.net core 2.0 web api 基础框架 (3) | https://cloud.tencent.com.cn/developer/article/1048014?policyId=1003
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [citation] @contextjs/di - npm Package Security Analysis - Socket | https://socket.dev/npm/package/%40contextjs%2Fdi
+- [citation] @dandi/di-core | https://www.npmjs.com/package/@dandi/di-core?ref=pkgstats.com
+- [citation] 分析 Spring 的依赖注入模式 | https://developer.aliyun.com/article/1214303
+- [citation] 关于依赖注入 | https://juejin.cn/post/7185474747445018682
+- [citation] 为什么 Spring和IDEA 都不推荐使用 @Autowired 注解 | https://cloud.tencent.cn/developer/article/1971151?policyId=1004
+- [citation] Configuration Classes and Providers | DavidLandup0/mitsuki | DeepWiki | https://deepwiki.com/DavidLandup0/mitsuki/7.3-configuration-classes-and-providers
+- [citation] Dependency Injection Decorators | https://loopback.io/doc/en/lb4/Decorators_inject.html#@inject.binding
+- [citation] Dependency Injection made easy in Laminas/Mezzio applications | https://www.dotkernel.com/dotkernel/dependency-injection-made-easy-in-laminas-mezzio-applications/
+- [citation] Dependency Injection Patterns | https://academy.optimizely.com/student/activity/3237207-dependency-injection-patterns?sid=717fb349-2802-4b89-aefb-a4921ff13380&sid_i=11
+- [citation] Dependency Injection System | nestjs/nest | DeepWiki | https://deepwiki.com/nestjs/nest/3.1-dependency-injection-system
+- [citation] Field Injection and Inheritance | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/76848094/field-injection-and-inheritance
+- [citation] injecute | https://www.npmjs.com/package/injecute
+- [citation] moject - npm Package Security Analysis - Socket | https://socket.dev/npm/package/moject
+- [citation] moject CDN by jsDelivr - A CDN for npm and GitHub | https://www.jsdelivr.com/package/npm/moject
+- [citation] PicoContainer - Injection via Providers | http://picocontainer.com/providers.html
+- [citation] Spring- @ autowired, @ resource, @ INJECT difference, and Spring Why is recommended to use a constructor to inject | https://www.programmersought.com/article/112010558764/
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 41e9d05b-396b-41d7-9d40-fa0a9d01f46c

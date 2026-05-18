@@ -1,0 +1,198 @@
+回复ID: threadSafetyReview-20260518-001
+
+## 一、维度名称审查
+
+**维度名称 `线程安全关注度 (Thread Safety Consideration)` 基本准确。** 该名称聚焦于“代码中肉眼可见的保护策略的密集程度”，而非判断程序是否真正线程安全，这与量表的设计目标一致。
+
+线程安全的不同实现方式在代码形态上有显著差异。从共享内存+锁（线程、互斥锁）到 CSP（Channel）、Actor（Mailbox）再到 STM（事务内存），每种并发范式在屏幕上呈现截然不同的视觉特征[reference:0]。名称中的“关注度”一词恰当地将焦点放在“代码长什么样”而非“代码是否真的安全”上。
+
+**判断**：名称可保留，表达准确，无需修改。
+
+---
+
+## 二、0-5 档单调递进性审查
+
+### 现有等级文案：
+
+| 等级 | 原文案 |
+|------|--------|
+| 0 | 屏幕上代码直接操作可变变量，无任何同步关键字或锁结构，视觉上如同纯顺序脚本 |
+| 1 | 偶尔出现 lock、synchronized 块或 mutex 调用，散落在少量共享数据周围 |
+| 2 | 可见 ConcurrentHashMap、AtomicInteger 等并发安全数据结构的声明与使用，锁的痕迹较少 |
+| 3 | 所有共享可变字段都被包裹在同步原语中，屏幕上同步代码与数据定义一一对应 |
+| 4 | 代码中充满 final 不可变字段、无 setter 的数据类，或大量 Channel、Queue 消息传递结构 |
+| 5 | 整个项目文件由 actor 类定义、receive 方法、Behavior 模型构成，屏幕上没有任何显式锁语句 |
+
+### 问题分析：
+
+现有 6 条文案在等级 0-3 之间构建了清晰的递进关系，每提升一级都有肉眼可见的更多同步关注痕迹：
+
+- **等级 0 → 等级 1**：从“无同步”到“偶尔出现 lock/synchronized”，关注度提升。
+- **等级 1 → 等级 2**：从“散落的同步块”到“声明式并发安全数据结构（ConcurrentHashMap、AtomicInteger）”，锁痕迹减少但关注度不变——这是一个合理的过渡。
+- **等级 2 → 等级 3**：从“局部使用并发工具”到“所有共享可变字段都被包裹在同步原语中”，关注度进一步提升。
+
+但在等级 3 → 4 → 5 之间出现了问题：
+
+**（1）等级 4 混杂了两个不同维度的模式**
+
+等级 4 将 **不可变对象（final 字段、无 setter）** 与 **消息传递（Channel、Queue）** 放在同一档。这两种模式在线程安全策略上属于不同的哲学取向：不可变对象通过消除可变性来避免问题，消息传递通过隔离状态来避免共享，二者不是同一量级上的递进[reference:1]。
+
+不可变对象是线程安全的基础策略——不可变对象天然线程安全，因为其状态永远不会改变[reference:2]。而 Channel/Queue 消息传递结构则属于另一个并发模型轴（CSP / Actor 通信原语）。将二者合并在一级中，使得等级 4 的内部一致性降低。
+
+**（2）等级 5 将 Actor/Behavior 模型放在“最高”位置，存在“更高/更好”的暗示**
+
+Actor 模型并非比锁/原子类“更高”的线程安全等级，而是一种不同的并发范式。并发有四种可行的支柱：共享内存+锁、CSP、Actor、STM——没有任何一种普适地“更好”[reference:3]。每种范式解决不同的问题，适用于不同的场景[reference:4]。
+
+Actor 模型通过消息传递和串行处理来避免共享可变状态——Actor 封装私有状态，只能通过消息通信，框架保证每次只处理一条消息，因此 Actor 内部代码可以以无锁方式编写[reference:5][reference:6]。屏幕上确实看不到显式锁，但这不意味着线程安全关注度“更高”——只是关注点从“如何加锁”转向了“如何设计消息协议与状态隔离”[reference:7]。正如资料指出，Actor 模型也不能防止死锁或资源竞争，只是这些问题转移到了消息队列层面[reference:8]。将 Actor 放在量表顶端会误导使用者认为“用 Actor 就一定比加锁更关注线程安全”，这是一种价值观判断，违背了量表的设计原则。
+
+**总体判断**：等级 0-3 递进良好；等级 4 内部混杂；等级 5 暗示 Actor 模型是“最高”线程安全关注度，这是跨维度偏差。需要重新设计等级 4 和 5，使整个量表在同一条“肉眼可见的同步/保护关注度”轴上递进。
+
+---
+
+## 三、跨维度内容识别
+
+| 问题 | 涉及等级 | 严重性 |
+|------|----------|--------|
+| “不可变对象”与“消息传递结构”放在同一级，视觉特征不一致 | 等级 4 | 中 |
+| Actor/Behavior 暗示比锁“更高”，引入了并发模型优劣判断 | 等级 5 | 高 |
+| 等级 4 内部两种模式（消除可变 vs 隔离状态）分属不同的线程安全哲学 | 等级 4 | 中 |
+
+并发模型的选择是设计决策，而非线程安全关注度的“高低”。Actor 模型是锁/原子类这一轴的 **替代方案**，而非其 **延伸终点**[reference:9]。同时，原子类（AtomicInteger）与显式锁在某些场景下可以共存，将“锁的痕迹较少”作为等级 2 的特征合理，但不应暗示原子类必然优于锁——这只是代码外观的变化。
+
+---
+
+## 四、6 条替代文案（修订版）
+
+以下替代文案全部围绕“肉眼可见的共享可变状态保护痕迹”这一单一视觉维度展开。每条描述的都是代码长什么样，不评价并发模型优劣，不涉及真实线程安全判断。
+
+> **等级 0 —— 无保护痕迹（No Protection Traces）**
+> 屏幕上直接出现对可变字段的裸读写操作（如 `this.count++`、`list.add(item)`），未见任何 **同步关键词（synchronized/lock/mutex）**、**并发安全容器（ConcurrentHashMap/CopyOnWriteArrayList）** 或 **原子包装类型（AtomicInteger/AtomicReference）** 的声明与使用。代码视觉上如同纯顺序脚本。
+
+> **等级 1 —— 稀疏同步点（Sparse Synchronization Points）**
+> 屏幕上**偶尔出现** `synchronized` 块、`lock()/unlock()` 调用或 `mutex` 语句，散落在个别方法或少数共享数据周围。大部分代码区域仍以裸访问为主，**同步结构（synchronized/lock）** 的出现频率低且不成体系。
+
+> **等级 2 —— 声明式并发安全类型（Declarative Concurrent Utilities）**
+> 屏幕上可见 **并发安全集合（ConcurrentHashMap/ConcurrentLinkedQueue）** 或 **原子变量（AtomicInteger/AtomicLong/AtomicReference）** 的字段声明与使用。这些类型替代了部分显式同步块，使代码中 **显式锁结构（lock/synchronized）** 的痕迹减少，但并发安全工具的声明在屏幕上占据显著位置。
+
+> **等级 3 —— 系统化同步覆盖（Systematic Synchronization Coverage）**
+> 每个在屏幕上出现的**共享可变字段（shared mutable fields）** 都能在临近位置找到对应的 **同步保护原语（synchronized/lock/mutex）** 或 `@GuardedBy` 注解。`@GuardedBy` 注解直接标注在字段上，指明该字段受哪个锁保护，同步代码与数据定义在视觉上一一对应、成对出现[reference:10][reference:11]。
+
+> **等级 4 —— 全面不可变设计（Pervasive Immutable Design）**
+> 屏幕上大量出现 `final` 字段声明、**无 setter 方法的数据类（data class）**、`final` 类声明以及防御性拷贝。**不可变对象（Immutable Objects）** 的视觉特征在代码中占主导：字段全部 `final`、构造函数一次性赋值、只有 getter、没有修改入口[reference:12]。这使得显式同步结构退居次要位置。
+
+> **等级 5 —— 架构级隔离通信（Architecture-Level Isolation via Communication）**
+> 屏幕上由 **消息传递结构（Channel/Queue/Mailbox）** 或 **Actor 模型（Behavior/receive/ActorRef）** 的声明构成主体，`Behaviors.receive`、`ActorRef`、`Behavior[M]` 等类型与闭包在文件中反复出现[reference:13][reference:14]。整个编译单元内没有显式 **同步锁结构（synchronized/lock/mutex）** 的痕迹，所有交互通过 **异步消息（asynchronous messages）** 完成。
+
+### 修订说明
+
+| 修改项 | 原等级 | 修改理由 |
+|--------|--------|----------|
+| 等级 4 拆分为两个独立等级 | 原4 | 不可变对象与消息传递是不同的视觉特征，需要分开描述 |
+| 原等级 4（消息传递部分）上移至新等级 5 | 原4→新5 | 消息传递/Actor 在视觉上确实表现为“无锁”，但这是替代方案而非“更高” |
+| 原等级 5（Actor/Behavior）合并入新等级 5 | 原5 | 与原等级 4 的消息传递部分合并，统一描述为“架构级隔离通信” |
+| 新增等级 4（全面不可变设计） | 新4 | 使视觉递进更清晰：同步原语 → 并发工具 → 系统化同步 → 消除可变 → 架构隔离 |
+| 等级 3 中补充 `@GuardedBy` | 原3 | `@GuardedBy` 是代码外观中常见的线程安全文档标记，与 synchronized 块视觉上形成对应[reference:15] |
+
+### 递进逻辑
+
+```
+0: 无任何保护痕迹（裸读写）
+  ↓ 关注度提升
+1: 偶尔出现同步块（稀疏锁）
+  ↓ 从"加锁"转向"用并发安全类型"
+2: 声明式并发安全类型（ConcurrentHashMap/AtomicInteger）
+  ↓ 从"局部使用"到"系统化覆盖"
+3: 系统化同步覆盖（每字段有锁，@GuardedBy 注解）
+  ↓ 从"加锁保护可变"转向"消除可变本身"
+4: 全面不可变设计（final 字段，无 setter）
+  ↓ 从"消除可变"转向"架构级隔离通信"
+5: 架构级隔离通信（Channel/Queue/Actor）
+```
+
+每一级都从屏幕上可观察到的代码结构特征进行区分，不涉及真实线程安全判断，不偏好任何并发模型。
+
+---
+
+## 五、建议来源说明
+
+| 建议 | 依据类型 |
+|------|----------|
+| 维度名称“线程安全关注度”可保留 | **推断**（基于名称与量表内容的语义匹配） |
+| Actor 模型与锁/原子类属于不同并发模型轴，不应视为“更高”等级 | **公开资料**（HarrisonSec 的四支柱分类；StackExchange 上的 Actor vs threads 讨论）[reference:16][reference:17] |
+| 等级 4 中“不可变对象”与“消息传递”混杂问题 | **推断**（基于对量表设计原则的分析） |
+| `@GuardedBy` 注解作为代码外观的可观察特征 | **公开资料**（SEI CMU wiki、CSDN 线程同步注解文章）[reference:18][reference:19] |
+| 不可变对象的视觉特征（final 字段、无 setter） | **公开资料**（DigitalOcean 不可变类教程、Lagom 文档）[reference:20][reference:21] |
+| Actor/Behavior 的代码外观特征（Behaviors.receive、ActorRef） | **公开资料**（Akka Typed 掘金文章、Akka 官方文档）[reference:22][reference:23] |
+| 等级 0-3 递进合理 | **推断**（基于对话义连贯性的分析） |
+| 新等级 4 与 5 之间的递进关系 | **推断**（基于从“消除可变”到“架构隔离”的视觉关注度递增逻辑） |
+
+---
+
+## 六、总结
+
+现有量表的核心问题在于：**将 Actor 模型（等级 5）作为比锁/原子类（等级 1-3）“更高”的线程安全关注度，以及将不可变对象与消息传递混杂在同一等级（等级 4）。** Actor 模型是锁/原子类的替代并发范式，不是其延伸终点。修改后的 6 条替代文案严格围绕“肉眼可见的共享可变状态保护痕迹”这一单一视觉维度展开，覆盖了从“无保护”到“架构级隔离”的完整梯度，避免了并发模型优劣判断和跨维度偏差。
+
+Citations:
+- [reference:0] Exact page | From Locks to Actors: The Four Pillars of Modern Concurrency | HarrisonSec | https://harrisonsec.com/blog/four-pillars-modern-concurrency-locks-to-actors/
+- [reference:1] Exact page | How does Actors work compared to threads? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/3583137/how-does-actors-work-compared-to-threads
+- [reference:2] Exact page | How to Create an Immutable Class in Java | DigitalOcean | https://www.digitalocean.com/community/tutorials/how-to-create-immutable-class-in-java?comment=176116
+- [reference:3] Exact page | From Locks to Actors: The Four Pillars of Modern Concurrency | HarrisonSec | https://harrisonsec.com/blog/four-pillars-modern-concurrency-locks-to-actors/
+- [reference:4] Exact page | SE-0433 Mutex vs actor - General advice? | https://forums.swift.org/t/se-0433-mutex-vs-actor-general-advice/71338/7
+- [reference:5] Search result set | query=thread safety code appearance synchronized lock ConcurrentHashMap AtomicInteger final immutable visual indicators | candidates=44
+  candidate 1: 【Java 核心】多线程笔记 | https://my.oschina.net/u/4382780/blog/4135715#comments
+  candidate 2: 查看来源 | https://shibboleth.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1556382525
+  candidate 3: 成为/不受欢迎–发现Akka | https://blog.csdn.net/danpie3295/article/details/106779743
+  candidate 4: 多线程--JUC-安全-阿里云开发者社区 | https://developer.aliyun.com/article/770233
+  candidate 5: 聊一聊线程安全、Java中的锁 | https://cloud.tencent.cn/developer/article/2279953
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Exact page | Protecting state using virtual threads | SoftwareMill | https://softwaremill.com/protecting-state-using-virtual-threads/?trk=article-ssr-frontend-pulse_little-text-block
+- [reference:7] Exact page | Actor模型：从原理到实战，搞懂无锁高并发 | https://blog.csdn.net/cookies_s_/article/details/159250151
+- [reference:8] Exact page | How does Actors work compared to threads? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/3583137/how-does-actors-work-compared-to-threads
+- [reference:9] Exact page | How does Actors work compared to threads? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/3583137/how-does-actors-work-compared-to-threads
+- [reference:10] Search result set | query=thread safety code appearance synchronized lock ConcurrentHashMap AtomicInteger final immutable visual indicators | candidates=44
+  candidate 1: 【Java 核心】多线程笔记 | https://my.oschina.net/u/4382780/blog/4135715#comments
+  candidate 2: 查看来源 | https://shibboleth.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1556382525
+  candidate 3: 成为/不受欢迎–发现Akka | https://blog.csdn.net/danpie3295/article/details/106779743
+  candidate 4: 多线程--JUC-安全-阿里云开发者社区 | https://developer.aliyun.com/article/770233
+  candidate 5: 聊一聊线程安全、Java中的锁 | https://cloud.tencent.cn/developer/article/2279953
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Exact page | Thread专题(14/14) - 自定义Annocation | https://korgs.blog.csdn.net/article/details/130027304
+- [reference:12] Search result set | query=thread safety code appearance synchronized lock ConcurrentHashMap AtomicInteger final immutable visual indicators | candidates=44
+  candidate 1: 【Java 核心】多线程笔记 | https://my.oschina.net/u/4382780/blog/4135715#comments
+  candidate 2: 查看来源 | https://shibboleth.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1556382525
+  candidate 3: 成为/不受欢迎–发现Akka | https://blog.csdn.net/danpie3295/article/details/106779743
+  candidate 4: 多线程--JUC-安全-阿里云开发者社区 | https://developer.aliyun.com/article/770233
+  candidate 5: 聊一聊线程安全、Java中的锁 | https://cloud.tencent.cn/developer/article/2279953
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Search result set | query=thread safety code appearance synchronized lock ConcurrentHashMap AtomicInteger final immutable visual indicators | candidates=44
+  candidate 1: 【Java 核心】多线程笔记 | https://my.oschina.net/u/4382780/blog/4135715#comments
+  candidate 2: 查看来源 | https://shibboleth.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1556382525
+  candidate 3: 成为/不受欢迎–发现Akka | https://blog.csdn.net/danpie3295/article/details/106779743
+  candidate 4: 多线程--JUC-安全-阿里云开发者社区 | https://developer.aliyun.com/article/770233
+  candidate 5: 聊一聊线程安全、Java中的锁 | https://cloud.tencent.cn/developer/article/2279953
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:14] Exact page | Akka Typed 探索：基于 Actor 模型的设计模式与路由机制 | https://juejin.cn/post/7132022881973862414?from=search-suggest
+- [reference:15] Exact page | 线程同步的注解:@ThreadSafe、@Immutable、@NotThreadSafe、@GuardedBy | https://blog.csdn.net/loliDapao/article/details/122473071
+- [reference:16] Exact page | From Locks to Actors: The Four Pillars of Modern Concurrency | HarrisonSec | https://harrisonsec.com/blog/four-pillars-modern-concurrency-locks-to-actors/
+- [reference:17] Exact page | How does Actors work compared to threads? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/3583137/how-does-actors-work-compared-to-threads
+- [reference:18] Search result set | query=thread safety code appearance synchronized lock ConcurrentHashMap AtomicInteger final immutable visual indicators | candidates=44
+  candidate 1: 【Java 核心】多线程笔记 | https://my.oschina.net/u/4382780/blog/4135715#comments
+  candidate 2: 查看来源 | https://shibboleth.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1556382525
+  candidate 3: 成为/不受欢迎–发现Akka | https://blog.csdn.net/danpie3295/article/details/106779743
+  candidate 4: 多线程--JUC-安全-阿里云开发者社区 | https://developer.aliyun.com/article/770233
+  candidate 5: 聊一聊线程安全、Java中的锁 | https://cloud.tencent.cn/developer/article/2279953
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:19] Exact page | Thread专题(14/14) - 自定义Annocation | https://korgs.blog.csdn.net/article/details/130027304
+- [reference:20] Exact page | How to Create an Immutable Class in Java | DigitalOcean | https://www.digitalocean.com/community/tutorials/how-to-create-immutable-class-in-java?comment=176116
+- [reference:21] Exact page | Lagom - Immutable Objects | https://www.lagomframework.com/documentation/1.1.x/java/Immutable.html
+- [reference:22] Search result set | query=thread safety code appearance synchronized lock ConcurrentHashMap AtomicInteger final immutable visual indicators | candidates=44
+  candidate 1: 【Java 核心】多线程笔记 | https://my.oschina.net/u/4382780/blog/4135715#comments
+  candidate 2: 查看来源 | https://shibboleth.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1556382525
+  candidate 3: 成为/不受欢迎–发现Akka | https://blog.csdn.net/danpie3295/article/details/106779743
+  candidate 4: 多线程--JUC-安全-阿里云开发者社区 | https://developer.aliyun.com/article/770233
+  candidate 5: 聊一聊线程安全、Java中的锁 | https://cloud.tencent.cn/developer/article/2279953
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:23] Exact page | Akka Typed 探索：基于 Actor 模型的设计模式与路由机制 | https://juejin.cn/post/7132022881973862414?from=search-suggest
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: dd88b789-0f4f-49f9-9423-2df093afb35a

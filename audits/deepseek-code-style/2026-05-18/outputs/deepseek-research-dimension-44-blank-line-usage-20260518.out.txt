@@ -1,0 +1,197 @@
+回复ID: blankLineUsage-20260518-001
+
+## 一、维度名称审查: **维度名称 (Dimension Name)** ——“空行使用规范”是否准确
+
+**结论：大体准确，但存在轻微歧义。**
+
+“空行使用规范 (Blank Line Usage)”这个名称准确捕获了维度的核心对象——空行的使用方式。然而，“规范”一词在中文语境中隐含了一种“应该如此”的规范性期待，与量表本身的描述性定位（“代码长什么样”）存在轻微张力。
+
+从公开资料来看，**PEP 8** 将空行相关规则直接称为 **“Blank Lines”**，其描述是描述性+规定性混合的——它既描述了“顶层函数和类定义之间用两个空行”的应然状态，也描述了“在函数内部少用空行表示逻辑段落”的实践模式[reference:0]。**Google C++ 风格指南**（中文版）则使用 **“垂直留白 (Vertical Whitespace)”** ，强调“垂直留白越少越好”的原则[reference:1]。ReSharper 文档中使用 **“Blank Lines”** 作为配置页面标题[reference:2]。
+
+考虑到目标量表纯粹描述“代码长什么样”（肉眼可见的空行数量、分布、一致性），建议将维度名称微调为更中性的表述，如 **“空行使用 (Blank Line Usage)”** 或 **“空白行分布 (Blank Line Distribution)”** ，以避免“规范”一词带来的规范性期待。
+
+> **基于公开资料：** PEP 8 使用 “Blank Lines” 作为章节标题；Google C++ 风格指南使用 “垂直留白 (Vertical Whitespace)”。
+> **我的推断：** “规范”一词可能引入隐含的规范性判断，如果量表目标纯粹是描述性观察，去掉或替换这个词更为中性。
+
+
+## 二、单调递进性审查: **0-5 档递进性 (Monotonic Progression)**
+
+**结论：基本单调递进，但第 2 档和第 3 档之间存在概念跳跃，不够平滑。**
+
+逐档分析如下：
+
+| 档位 | 描述摘要 | 外观特征 |
+|------|---------|---------|
+| 0 | 空行数量不一，粘连与多空行并存，无可见规律 | 完全无规律 |
+| 1 | 顶层定义之间有空行，但函数内部逻辑块经常粘连 | 顶层有规律，内部无 |
+| 2 | 逻辑段落之间使用空行分组，但空行数量（1行/2行/多行）不统一 | 有分组意识，但数量不一致 |
+| 3 | 类、函数和主要逻辑段前后的空行数量遵循固定约定，布局可预期 | 数量有约定，布局可预测 |
+| 4 | 类似元素之间的空行数量高度一致，视觉节奏稳定且少有突变 | 高度一致，视觉节奏稳定 |
+| 5 | 空行只出现在预期的结构边界和逻辑组之间，多余空行与粘连块都很少见 | 最理想状态，无多余无缺失 |
+
+**递进逻辑**：从“无规律(0)” → “部分有规律(1)” → “有分组但不统一(2)” → “有约定可预测(3)” → “高度一致(4)” → “理想状态(5)”。整体方向是从混乱到有序的单调上升，符合量表设计的单向性要求。
+
+**问题点**：
+- **第 2→3 档的跳跃**：第 2 档停留在“空行数量不统一”，第 3 档突然跳到“遵循固定约定”，两者之间的过渡不够平滑。第 2 档描述的是“有分组意识但执行不到位”的状态，第 3 档描述的已经是“有明确约定且执行到位”的状态。中间缺少一个“空行数量基本统一但偶尔出现不一致”的中间状态。
+- **第 5 档的理想化表述**：“多余空行与粘连块都很少见”中的“很少见”与“只在预期位置出现”之间存在逻辑张力——如果是“只在预期位置”，那么多余空行应该是“没有”而非“很少见”。
+
+> **基于公开资料：** 量表递进性审查是量表设计的基本方法学问题，未在具体代码风格指南中找到直接对应。
+> **我的推断：** 第 2→3 档的概念跳跃和第 5 档的理想化表述是基于对递进逻辑的分析推断。
+
+
+## 三、跨维度内容与误导性内容审查: **跨维度风险 (Cross-Dimension Risks)**
+
+### 3.1 是否存在自动格式化工具 (Formatter) 相关内容的误并入？
+
+**结论：当前描述文案未直接提及 formatter，但在审查中需警惕将 formatter 行为误认为“空行外观”。**
+
+从搜索资料来看，格式化工具对空行的处理方式各不相同：
+
+- **Prettier** 会移除所有原始样式，但保留了空行和多行对象方面的原始样式[reference:3]。
+- **ReSharper** 提供了“Preserve Existing Formatting”选项，允许保留最大空行数等设置[reference:4]。
+- 专用的 Python 空行格式化工具 **Spacing** 则按 PEP 8 规则智能管理空行，支持配置不同代码块类型之间的间距[reference:5]。
+
+这些工具的行为说明了一个关键点：**空行的外观可能来自格式化工具的配置，而非开发者有意识的分组意图。** 但这对量表影响不大，因为量表只观察“代码长什么样”，不关心“为什么长这样”。当前六条描述文案均未涉及 formatter 流程，这一点是安全的。
+
+> **基于公开资料：** Prettier 文档说明其移除原始样式但保留空行[reference:6]；ReSharper 文档说明其配置页面包含“Preserve Existing Formatting”和“Blank Lines”两组选项[reference:7]。
+
+### 3.2 是否存在“任何两个元素距离精确”或“印刷品般规整”的过度规范？
+
+**结论：第 3-5 档的描述在措辞上有所保留，未直接要求“精确到像素”的过度规范，但存在措辞风险。**
+
+仔细分析：
+- 第 3 档：“遵循固定约定”——这是一个合理的外观描述（如“类之间总是两行空行”），并未要求绝对精确。
+- 第 4 档：“高度一致，视觉节奏稳定且少有突变”——侧重“一致性”和“节奏”，但“视觉节奏”一词可能被误解为审美判断而非外观观察。
+- 第 5 档：“只出现在预期的结构边界和逻辑组之间”——“预期”一词隐含了某个外部标准，但未指定是什么标准。
+
+**风险点**：如果使用者将“固定约定”“高度一致”“预期位置”理解为 formatter 配置文件的精确输出要求，则可能偏离量表的外观观察初衷。当前文案整体上是安全的，但第 4 档的“视觉节奏”可以考虑替换为更客观的表述（如“空行数量在同类元素间无差异”）。
+
+### 3.3 是否将“可读性质量”或“风格优劣”误并入空行外观？
+
+**结论：当前描述文案整体聚焦于“代码长什么样”，但第 5 档的描述隐约涉及了“好代码”的判断。**
+
+第 5 档“多余空行与粘连块都很少见”实际上描述了一种“该有的都有、不该有的都没有”的理想状态，这在一定程度上已经超出了纯粹的外观描述，进入了“好”与“不好”的判断。相比之下，第 0-4 档的描述更中性，只陈述外观事实。如果量表的目标是纯描述性，第 5 档可以调整为更外观化的表述（如“文件内任何位置均未出现两行及以上的连续空行，也未出现逻辑块粘连”）。
+
+> **基于公开资料：** Google C++ 风格指南指出“过于密集的代码块和过于疏松的代码块同样难看，这取决于你的判断”，说明即使是风格指南也承认空行的“好坏”具有主观性[reference:8]。
+> **我的推断：** 第 5 档的理想化表述引入了隐含的“正确性”判断，如果量表追求纯描述性，应予以调整。
+
+
+## 四、替代文案建议
+
+以下六条替代文案，核心设计原则是：**每条都能从代码外观直接观察，不依赖 formatter 配置、不引入可读性好坏判断、不要求绝对精确。**
+
+| 档位 | 原描述 | 替代描述 |
+|------|-------|---------|
+| 0 | 代码段之间空行数量不一，有的粘连、有的空多行，整体没有可见规律 | **全文件空行分布无明显规律**：顶层定义、方法间、逻辑块间的空行数量变化大，常见连续多行空白与代码粘连并存，无一致的间距模式可循 |
+| 1 | 函数或类等顶层定义之间有空行，但函数内部逻辑块经常粘连 | **仅顶层结构存在间距**：函数/类等顶层定义之间可见空行分隔，但函数内部逻辑段落（如条件分支前后、循环前后）缺乏空行，代码呈现粘连状态 |
+| 2 | 逻辑段落之间使用空行分组，但一行、两行或多行的数量还不统一 | **逻辑分组意识明显但间距不统一**：逻辑段落之间使用了空行进行分组，但同类元素（如两个方法之间）有的空一行、有的空两行或多行，空白行数量未形成稳定模式 |
+| 3 | 类、函数和主要逻辑段前后的空行数量遵循固定约定，布局可预期 | **主要结构边界的空行数基本一致**：同类元素前后的空行数量在全文件范围内保持一致（如类之间始终两行、方法之间始终一行），布局可预测，但次要逻辑分组偶有差异 |
+| 4 | 全文件类似元素之间的空行数量高度一致，视觉节奏稳定且少有突变 | **全文件空行数量高度一致**：所有同类结构边界（顶层定义间、方法间、逻辑组间）的空行数量均保持一致，未观察到不一致或突变的情况 |
+| 5 | 空行只出现在预期的结构边界和逻辑组之间，多余空行与粘连块都很少见 | **空行严格限定在结构边界和逻辑组边界**：文件中未观察到两行及以上的连续空白（空行堆叠），也未发现应分隔的代码块出现粘连；每个空行都对应着一个结构或逻辑的分界 |
+
+**设计说明（替代文案的关键改进）**：
+
+1. **纯外观化**：每条都用“可见”“观察到”“呈现”“未发现”等视觉词汇，避免“应该”“预期”“约定”等规范性词汇。
+2. **单调递进优化**：从“无规律(0)”→“仅顶层有(1)”→“有分组但不统一(2)”→“主要结构一致(3)”→“全文件一致(4)”→“严格限定无多余无缺失(5)”，递进更平滑。
+3. **避免隐含价值判断**：第 5 档不再使用“很少见”这类模糊评价词，改为“未观察到两行及以上的连续空白”和“未发现应分隔的代码块出现粘连”这两条可验证的外观条件。
+4. **去除“视觉节奏”等主观表述**：第 4 档的“视觉节奏稳定且少有突变”改为“所有同类结构边界的空行数量均保持一致，未观察到不一致或突变的情况”。
+
+> **基于公开资料：** PEP 8 规定“类和方法之间的空行规则”——顶层定义两个空行，类内方法间一个空行[reference:9]；Google 指南规定“两个函数定义之间的空行不要超过 2 行”[reference:10]。
+> **我的推断：** 替代文案的具体措辞是我基于“从代码外观直接观察”原则进行的推断性撰写，6 条替代文案的递进层次结构参考了原始量表的 0-5 档框架。
+
+
+## 五、公开资料来源
+
+以下是本次审查中使用到的公开资料，按相关性排序：
+
+| 序号 | 来源 | 关键信息 | 引用位置 |
+|------|------|---------|---------|
+| 1 | **PEP 8 — Style Guide for Python Code (Blank Lines)** | 顶层函数和类定义之间用两个空行分隔；类内方法定义之间用一个空行分隔；可在函数内部少用空行表示逻辑段落[reference:11][reference:12] | 维度名称、替代文案、跨维度审查 |
+| 2 | **Google C++ Style Guide — 垂直留白 (Vertical Whitespace)** | 垂直留白越少越好；两个函数定义之间的空行不超过 2 行；函数体首尾不要留空行；同一屏可显示的代码越多越容易理解控制流[reference:13] | 维度名称、跨维度审查 |
+| 3 | **ReSharper Documentation — Blank Lines** | 配置是否应在命名空间、成员、区域和导入指令组周围增加或减少空行数量；保留现有格式选项仅在重新格式化时应用[reference:14] | 跨维度审查（formatter 行为） |
+| 4 | **Prettier Documentation** | Prettier 移除所有原始样式，确保输出代码符合一致的样式；但在空行和多行对象方面保留原始样式[reference:15] | 跨维度审查（formatter 行为） |
+| 5 | **Spacing (Python Blank Line Formatter)** | 默认遵循 PEP 8 规则；可配置不同代码块类型之间的间距；支持保持现有间距和逻辑结构[reference:16][reference:17] | 跨维度审查（formatter 行为） |
+| 6 | **Code Review Stack Exchange** | 过多垂直间距（空行）被视为代码异味（code smell）；空行过多使维护者难以一眼理解代码[reference:18] | 跨维度审查（空行与代码异味的关系） |
+
+
+## 六、总结
+
+| 审查维度 | 结论 | 严重程度 |
+|---------|------|---------|
+| 维度名称准确性 | “空行使用规范”大体准确但“规范”一词可能引入规范性期待；建议使用“空行使用”或“空白行分布” | 轻微 |
+| 0-5 档单调递进性 | 基本单调递进，但第 2→3 档存在概念跳跃，第 5 档的理想化表述不够纯粹 | 中等 |
+| formatter 相关内容误并入 | 当前文案未涉及 formatter，安全 | 无 |
+| 精确距离/过度规范化 | 第 3-5 档措辞有保留，未要求绝对精确；但“视觉节奏”“预期位置”等措辞存在被误解的风险 | 轻微 |
+| 可读性质量/风格优劣混入 | 第 5 档隐约涉及“好坏”判断，建议调整 | 轻微 |
+
+**整体评价**：当前量表在“空行使用规范”维度上的六个档位总体上属于同一条视觉维度上的单调递进，描述文案基本聚焦于代码外观的可观察特征。主要改进空间在于：(1) 优化第 2→3 档的递进平滑度；(2) 将第 5 档的理想化/评价性表述调整为纯描述性外观观察；(3) 微调若干措辞以避免引入隐含的规范性期待或审美判断。如采纳替代文案，可有效降低量表被误解为“格式化规范检查”或“代码美观度评价”的风险，使其更准确地服务于“判断代码长什么样”的描述性目标。
+
+Citations:
+- [reference:0] Search result set | query=over specification code style exact blank lines distance formatting strictness | candidates=24
+  candidate 1: @gerhobbelt/prettier-miscellaneous | https://www.npmjs.com/package/@gerhobbelt/prettier-miscellaneous?activeTab=readme
+  candidate 2: 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+  candidate 3: 代码规范之空行思路和原则 | https://blog.csdn.net/inthat/article/details/146518044
+  candidate 4: 留白和格式 — Google 开源项目风格指南 | https://doc.yonyoucloud.com/doc/zh-google-styleguide/google-objc-styleguide/spacing.html#id2
+  candidate 5: 留白和格式-Google 开源项目风格指南 (中文版)-w3cschool | https://m.w3cschool.cn/mvdbh3/8klioozt.html
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Exact page | 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+- [reference:2] Exact page | Blank Lines | ReSharper | https://www.jetbrains.com/help/resharper/2025.2/Reference__Options__Languages__CSharp__Formatting_Style__Blank_Lines.html
+- [reference:3] Search result set | query=over specification code style exact blank lines distance formatting strictness | candidates=24
+  candidate 1: @gerhobbelt/prettier-miscellaneous | https://www.npmjs.com/package/@gerhobbelt/prettier-miscellaneous?activeTab=readme
+  candidate 2: 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+  candidate 3: 代码规范之空行思路和原则 | https://blog.csdn.net/inthat/article/details/146518044
+  candidate 4: 留白和格式 — Google 开源项目风格指南 | https://doc.yonyoucloud.com/doc/zh-google-styleguide/google-objc-styleguide/spacing.html#id2
+  candidate 5: 留白和格式-Google 开源项目风格指南 (中文版)-w3cschool | https://m.w3cschool.cn/mvdbh3/8klioozt.html
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Exact page | Blank Lines | ReSharper | https://www.jetbrains.com/help/resharper/2025.2/Reference__Options__Languages__CSharp__Formatting_Style__Blank_Lines.html
+- [reference:5] Exact page | spacing | https://pypi.org/project/spacing/0.6.1/
+- [reference:6] Search result set | query=over specification code style exact blank lines distance formatting strictness | candidates=24
+  candidate 1: @gerhobbelt/prettier-miscellaneous | https://www.npmjs.com/package/@gerhobbelt/prettier-miscellaneous?activeTab=readme
+  candidate 2: 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+  candidate 3: 代码规范之空行思路和原则 | https://blog.csdn.net/inthat/article/details/146518044
+  candidate 4: 留白和格式 — Google 开源项目风格指南 | https://doc.yonyoucloud.com/doc/zh-google-styleguide/google-objc-styleguide/spacing.html#id2
+  candidate 5: 留白和格式-Google 开源项目风格指南 (中文版)-w3cschool | https://m.w3cschool.cn/mvdbh3/8klioozt.html
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Exact page | Blank Lines | ReSharper | https://www.jetbrains.com/help/resharper/2025.2/Reference__Options__Languages__CSharp__Formatting_Style__Blank_Lines.html
+- [reference:8] Exact page | 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+- [reference:9] Search result set | query=over specification code style exact blank lines distance formatting strictness | candidates=24
+  candidate 1: @gerhobbelt/prettier-miscellaneous | https://www.npmjs.com/package/@gerhobbelt/prettier-miscellaneous?activeTab=readme
+  candidate 2: 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+  candidate 3: 代码规范之空行思路和原则 | https://blog.csdn.net/inthat/article/details/146518044
+  candidate 4: 留白和格式 — Google 开源项目风格指南 | https://doc.yonyoucloud.com/doc/zh-google-styleguide/google-objc-styleguide/spacing.html#id2
+  candidate 5: 留白和格式-Google 开源项目风格指南 (中文版)-w3cschool | https://m.w3cschool.cn/mvdbh3/8klioozt.html
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Exact page | 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+- [reference:11] Search result set | query=over specification code style exact blank lines distance formatting strictness | candidates=24
+  candidate 1: @gerhobbelt/prettier-miscellaneous | https://www.npmjs.com/package/@gerhobbelt/prettier-miscellaneous?activeTab=readme
+  candidate 2: 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+  candidate 3: 代码规范之空行思路和原则 | https://blog.csdn.net/inthat/article/details/146518044
+  candidate 4: 留白和格式 — Google 开源项目风格指南 | https://doc.yonyoucloud.com/doc/zh-google-styleguide/google-objc-styleguide/spacing.html#id2
+  candidate 5: 留白和格式-Google 开源项目风格指南 (中文版)-w3cschool | https://m.w3cschool.cn/mvdbh3/8klioozt.html
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Exact page | Python Style Guide | https://users.cs.utah.edu/~mflatt/tmp/sweetpea-v0.2/guide/contributing/py_style_guide.html#blank-lines
+- [reference:13] Exact page | 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+- [reference:14] Exact page | Blank Lines | ReSharper | https://www.jetbrains.com/help/resharper/2025.2/Reference__Options__Languages__CSharp__Formatting_Style__Blank_Lines.html
+- [reference:15] Search result set | query=over specification code style exact blank lines distance formatting strictness | candidates=24
+  candidate 1: @gerhobbelt/prettier-miscellaneous | https://www.npmjs.com/package/@gerhobbelt/prettier-miscellaneous?activeTab=readme
+  candidate 2: 9. 格式 - 9.19. 垂直留白 - 《Google C++ 风格指南》 - 书栈网 | https://www.bookstack.cn/read/google-cpp-style/spilt.19.10.md
+  candidate 3: 代码规范之空行思路和原则 | https://blog.csdn.net/inthat/article/details/146518044
+  candidate 4: 留白和格式 — Google 开源项目风格指南 | https://doc.yonyoucloud.com/doc/zh-google-styleguide/google-objc-styleguide/spacing.html#id2
+  candidate 5: 留白和格式-Google 开源项目风格指南 (中文版)-w3cschool | https://m.w3cschool.cn/mvdbh3/8klioozt.html
+  ... 19 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Exact page | spacing | https://pypi.org/project/spacing/0.6.1/
+- [reference:17] Exact page | spacing | https://pypi.org/project/spacing/0.6.1/
+- [reference:18] Exact page | Revision 4546a1f8-a249-4f8a-835f-a5ff54dc6d6a | https://codereview.stackexchange.com/revisions/4546a1f8-a249-4f8a-835f-a5ff54dc6d6a/view-source
+- [citation] Code Style. Stylus | JetBrains Rider | https://www.jetbrains.com/help/rider/Code_Style_Stylus.html
+- [citation] Content - 66a61f6aee311686b2ad11e8a893e680d0a3ce67 - affcfbb/CodingStandards.txt | https://archive.softwareheritage.org/browse/content/sha1_git:66a61f6aee311686b2ad11e8a893e680d0a3ce67/?branch=refs/reviewable/pr1751/r1&path=CodingStandards.txt&snapshot_id=58cfe9e1b5e6cb579d395f97adfa0104687d91b7
+- [citation] CS61B Style Guide | https://www-inst.eecs.berkeley.edu/~cs61b/sp22/docs/style-guide.html
+- [citation] Designing Likert scales - TASO | https://taso.org.uk/libraryitem/designing-likert-scales/
+- [citation] Details for Survey scales : a guide to development, analysis, and reporting / | https://catalog.uttyler.edu/cgi-bin/koha/opac-detail.pl?biblionumber=933483&shelfbrowse_itemnumber=999648#holdings
+- [citation] EditorConfig Standards | zbhavyai/fedora-setup | DeepWiki | https://deepwiki.com/zbhavyai/fedora-setup/5.3-editorconfig-standards
+- [citation] molko: 97f55f6b9593 STYLE.md | https://hg.malikania.fr/molko/file/97f55f6b9593/STYLE.md
+- [citation] Questionnaire design | https://business.leeds.ac.uk/dir-record/research-projects/1449/questionnaire-design
+- [citation] questionnaire-design-guide | Skills Marketplace · LobeHub | https://lobehub.com/skills/wentorai-research-plugins-questionnaire-design-guide
+- [citation] Survey Scales: A Guide to Development, Analysis, and Reporting | https://jenny.guilfordpub.com/books/Survey-Scales/Johnson-Morgan/9781462526963?recommend=product-page
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 1641da8a-1263-478e-a690-0b68b7f763af

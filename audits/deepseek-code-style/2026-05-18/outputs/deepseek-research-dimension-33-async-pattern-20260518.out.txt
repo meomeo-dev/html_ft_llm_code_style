@@ -1,0 +1,277 @@
+**回复ID: asyncPatternReview-20260518-001**
+
+---
+
+## 一、维度名称分析：**异步与并发模式采用度** (Async / Concurrency Pattern Adoption)
+
+### 1.1 名称是否准确
+
+**维度名称整体正确但存在一个关键隐患**：副标题中的 **"Concurrency"（并发）** 一词从量表描述内容来看可以接受（因为异步模式天然涉及并发执行语义），但它可能引导评估者误入"架构审查"维度——也就是去关注线程池大小、上下文切换、死锁风险等真实并发指标，而非代码外观。
+
+**信号词——核心症状 (Core Symptom)**：量表的实际描述聚焦于代码屏幕上肉眼可见的**异步关键字与结构**（`async`、`await`、`.then()`、`callback`、`Observable`、`Flow`、`Mono`、`Flux`、协程 `suspend`、事件循环启动器），这正是"异步范式代码外观"的范畴。因此，维度名称**应更精确地锚定在"异步语法外观"（Async Syntax Appearance）上**，而非泛化为"并发模式"。
+
+| 评价维度 | 结论 |
+|----------|------|
+| 名称是否表达"代码外观" | ✅ 是，量表描述全部围绕屏幕可见的语法元素 |
+| "Concurrency" 是否引入杂音 | ⚠️ 轻微引入；建议弱化或替换为 "Syntax" |
+| 是否与异步范式类型混淆 | ⚠️ 当前名称未明确区分 callback/promise/async-await/stream/协程 等子类型，这恰好是量表本身要解决的任务 |
+
+---
+
+## 二、0—5 档递进性分析
+
+### 2.1 整体递进性判断
+
+**信号词——单调视觉轴 (Monotonic Visual Axis)**：0—3 档形成一条清晰的、单调递进的视觉轴：
+
+> **纯同步 → callback/then 可见 → async/await 大量出现 → 全文件 async 化**
+
+这条轴的核心是：**代码的外观逐渐从"没有异步关键字"过渡到"屏幕完全被异步关键字占据"**。这是同一条轴上量的增加。
+
+但 **4 档和 5 档出现了轴偏移问题**。
+
+### 2.2 逐档分析
+
+**第 0 档 — 完全同步 (Fully Synchronous)**
+
+> "代码屏幕上看不到任何异步关键字，只有逐行阻塞调用，视觉上如同一条直线式的同步流程"
+
+✅ **正确**。这是视觉异步轴的零点。在 JavaScript/TypeScript 代码中，表现为没有 `async`/`await`/`.then()`/`callback`；在 Python 中没有 `async def`/`await`；在 Rust 中没有 `.await` 点语法。
+
+**第 1 档 — 回调 / Promise (Callback / Promise)**
+
+> "在 I/O 调用附近可见 callback 嵌套、.then() 链或 Promise 对象的返回与处理"
+
+✅ **正确**。代码外观上出现了非 `async/await` 的异步标记。**信号词 — 金字塔视觉 (Pyramid Visual)**：callback 嵌套产生经典的"回调地狱"向右缩进结构（Pyramid of Doom），这在代码屏幕上具有极高的视觉辨识度[reference:0]。`.then()` 链则产生扁平的链式外观，但仍与同步代码视觉风格不同[reference:1]。
+
+**第 2 档 — async/await 密集使用 (Async/Await Heavy)**
+
+> "屏幕充斥 async 函数声明和 await 表达式，主要密集 I/O 部分被异步化"
+
+✅ **正确**。代码外观特征：`async function`、`async def`、`async fn` 声明随处可见，函数体内 `await` 表达式出现于关键 I/O 调用前。async/await 的代码外观与同步代码极为相似，这正是其设计目标——"looks like synchronous code"[reference:2]。
+
+**第 3 档 — 全异步化 (Fully Async)**
+
+> "整个代码文件中几乎每个函数都是 async，没有可见的阻塞调用，视觉上统一为异步风格"
+
+✅ **正确**。这是 async/await 轴的终点。**信号词 — 统一视觉 (Uniform Visual)**：屏幕上几乎每个函数声明前都有 `async` 标记，代码形成统一的异步风格（uniform async style），不再有"同步孤岛"。
+
+**第 4 档 — 响应式流 / 协程 (Reactive Streams / Coroutines)**
+
+> "出现 Observable、Flow、Mono/Flux 等响应式流类型，或协程编排结构，链式操作符明显"
+
+⚠️ **存在轴偏移**。**信号词 — 范式切换 (Paradigm Shift)**：Observable/Flow/Mono/Flux 属于**响应式流（Reactive Streams）范式**，其核心抽象是"数据流随时间变化（data streams over time）"，与 async/await 的"单次异步操作等待"不同[reference:3]。协程（Coroutines）则引入了 `suspend` 关键字、`launch`/`async` 构建器、`coroutineScope` 等结构化并发的视觉元素。
+
+关键问题：
+- 响应式流和协程**不是** async/await 的"更高级阶段"，而是**不同的范式选择**
+- 一个项目可以同时使用 async/await 和响应式流（不同模块不同范式），两者并非线性演进关系
+- 将 Observable/Flow/Mono/Flux 放在 async/await 之上暗示它们是"更高级"的异步模式，这在视觉逻辑上是可疑的
+
+**第 5 档 — 项目根事件循环 (Project Root Event Loop)**
+
+> "项目根文件可见事件循环启动器，所有模块均基于异步消息/回调"
+
+⚠️ **存在严重的轴偏移和跨维度污染**。**信号词 — 架构层面跨越 (Architecture-Level Leap)**：这一描述从"单个文件的代码外观"跳到了"项目架构"维度。事件循环启动器（如 `tokio::main`、`asyncio.run()`、`EventLoop` 结构体）通常仅存在于**一个**入口文件（项目根），而量表 0—4 档衡量的是**每个代码文件内部**的异步外观，这是一个根本性的维度不一致。
+
+"所有模块均基于异步消息/回调"更是一个**架构判断**（需要跨文件分析依赖关系），而非**代码外观判断**（肉眼扫描一个文件即可判断）。
+
+### 2.3 递进性总结
+
+| 档位 | 视觉特征 | 轴一致性 |
+|------|---------|---------|
+| 0 | 无异步关键字 | ✅ 同一轴 |
+| 1 | callback 嵌套 / `.then()` 链 | ✅ 同一轴 |
+| 2 | `async`/`await` 大量出现 | ✅ 同一轴 |
+| 3 | 全文件 async 化 | ✅ 同一轴（终点） |
+| 4 | Observable/Flow/Mono/Flux / 协程 | ❌ 范式切换，不在同一轴 |
+| 5 | 项目根事件循环 / 全模块消息回调 | ❌ 架构维度，不在同一轴 |
+
+---
+
+## 三、是否存在不必要、误导或跨维度的内容
+
+### 3.1 响应式流 (Reactive Streams) 是否与 async/await 同一轴
+
+**信号词 — 推拉模型分化 (Push vs Pull Divergence)**：响应式流基于**推模型（push-based）**——数据源主动推送数据，订阅者被动接收；而 async/await 基于**拉模型（pull-based）**——调用方主动等待单个结果返回。这是一个根本性的语义差异，意味着两者不是线性递进关系[reference:4]。
+
+从**代码外观**角度看：
+- 响应式流的外观特征是 `Observable`/`Flow`/`Mono`/`Flux` 类型声明 + 链式操作符（`.map()`、`.filter()`、`.flatMap()`、`.subscribe()`），这些操作符在视觉上与 `.then()` 链相似但语义不同
+- 协程的外观特征是 `suspend` 函数标记 + `launch`/`async` 构建器 + `withContext` 调度器切换，视觉上与 `async`/`await` 相似但添加了**结构化并发（structured concurrency）** 的视觉层次
+
+**结论**：响应式流和协程**可以**被纳入同一量表，但**不应作为 async/await 的更高档位（4档）**。它们更适合作为**并行分支**而非线性升级。如果量表需要覆盖它们，建议将其拆分为独立的子维度或替代路径。
+
+### 3.2 项目根事件循环 / 所有模块消息回调的问题
+
+**信号词 — 架构偷渡 (Architecture Smuggling)**：第 5 档犯了三个错误：
+
+1. **将"单个文件的外观"偷换为"项目架构判断"**：事件循环启动器只在根文件可见，但量表 0—4 衡量的是任意一个代码文件的内部特征。如果评估者打开一个普通的模块文件，里面全是 `async` 函数但没有任何事件循环启动器，按第 3 档应得 3 分，但如果项目"根文件有事件循环"，按第 5 档应得 5 分——两个标准互相矛盾。
+
+2. **引入跨文件依赖分析**："所有模块均基于异步消息/回调"需要遍历项目所有模块并分析其调用关系，这超出了"看一个文件即可判断"的代码外观审查范围。
+
+3. **模糊了视觉量表的边界**：0—3 档都是纯视觉判断（有没有 async、有没有 .then()），4—5 档却引入了"这是什么类型的架构"的判断，破坏了量表的内在一致性。
+
+### 3.3 其他潜在误导
+
+- **"没有可见的阻塞调用"（第 3 档）** 可能被误解为"代码中没有阻塞 I/O"，但这是一个性能判断而非外观判断。从代码外观角度，应改为"文件中没有可见的非 async 函数 / 同步 I/O 调用关键字"。
+- **"主要密集 I/O 部分被异步化"（第 2 档）** 引入了"密集 I/O"这一性能概念。代码外观应关注"I/O 调用附近是否出现 await 关键字"而非"是否密集"。
+
+---
+
+## 四、修改建议与替代文案
+
+### 4.1 修改原则
+
+**信号词 — 纯视觉原则 (Pure Visual Principle)**：所有 6 条替代文案必须：
+1. **只能从代码屏幕上的肉眼可见元素判断**（关键字、类型名、链式结构、缩进模式）
+2. **不得引入性能判断**（如"阻塞调用"的运行时含义）、**架构判断**（如"所有模块"）、**语言偏好**（如将 Rust 的 `.await` 与 JS 的 `await` 混为一谈时应允许各语言自行映射）
+3. **保持同一视觉轴**——即"异步相关语法元素在文件中的覆盖度和复杂度"
+
+### 4.2 建议量表结构
+
+如果目标是覆盖所有异步范式，建议将当前单轴量表**拆分为两条并行轴**：
+
+**轴 A：请求-响应式异步（Request-Response Async）** — 覆盖 callback → Promise → async/await 的演进
+
+**轴 B：流式异步（Stream Async）** — 覆盖 Observable/Flow/Mono/Flux 等响应式流范式
+
+这样可以避免将不同范式强行塞入同一线性轴。
+
+### 4.3 6 条替代文案（基于纯视觉原则的单轴方案）
+
+以下文案适用于**坚持单轴量表**的场景。**仅基于公开资料推断**（详见第五节声明）：
+
+**替代文案**
+
+**0 — 无异步关键字 (No Async Keywords)**
+代码屏幕上不存在任何异步语法标记：无 `async`、无 `await`、无 `.then()`、无 `callback` 参数、无 `Observable`/`Flow`/`Mono`/`Flux` 类型、无 `suspend`/`launch` 等协程关键字。所有函数声明为普通同步函数，函数调用呈直线式顺序排列，无需任何异步语法理解即可阅读。这是纯同步代码的视觉特征。
+
+**1 — 回调或 Promise 可见 (Callback or Promise Visible)**
+代码中出现明确的异步触发标记：callback 函数作为参数传入、产生向右阶梯式缩进（callback 嵌套金字塔）的视觉结构；或者出现 `.then()` 链式调用及 `new Promise` / `Promise.resolve` 等 Promise 对象的构造与返回。`async`/`await` 关键字尚未在文件中出现。异步意图通过参数传递或链式表达式来表达。
+
+**2 — async/await 局部引入 (Partial Async/Await Introduction)**
+文件中出现 `async` 函数声明和 `await` 表达式，但仅存在于部分函数中。屏幕可见同步函数与 async 函数混合排列，`await` 出现在特定的 I/O 调用（如网络请求、文件操作、数据库查询）之前。异步边界清晰但未覆盖全部代码。视觉上形成"同步函数岛屿 + 异步函数岛屿"的混合画面。
+
+**3 — async/await 全面覆盖 (Full Async/Await Coverage)**
+文件中几乎所有函数都标记为 `async`（或语言等价的 `async def`/`async fn`）。`await` 表达式广泛分布在函数体各处。肉眼扫过屏幕时，`async` 和 `await` 关键字高频出现，形成统一的异步语法视觉密度。没有明显的同步 I/O 调用（指传统阻塞式 API 调用，如 `fs.readFileSync`、`requests.get` 等同步变体）。
+
+**4 — 响应式流类型与链式操作符 (Reactive Stream Types and Chaining Operators)**
+屏幕上出现流式异步类型的声明与操作：`Observable<T>`（RxJS）、`Flow<T>`（Kotlin）、`Mono<T>` 或 `Flux<T>`（Project Reactor/Spring WebFlux）等类型标注。代码以声明式链式操作符（`.map()`、`.filter()`、`.flatMap()`、`.subscribe()`）组织异步数据流逻辑，形成纵向的"操作符管道"（operator pipeline）视觉结构。链式调用可能跨越数行到数十行，操作符名称在左边缘对齐排列。
+
+**5 — 协程结构化并发标记 (Coroutine Structured Concurrency Markers)**
+屏幕上出现协程框架的结构化并发视觉元素：`suspend` 函数修饰符（Kotlin）、`launch`/`async` 协程构建器、`coroutineScope`/`supervisorScope` 作用域包装、`withContext` 调度器切换调用。代码以嵌套或顺序的作用域块组织并发任务，作用域边界明确（由大括号或缩进块标记）。可同时存在 `await`（挂起点）和协程构建器调用，但视觉重心已从"等待单个结果"转移到"编排多个并发任务的作用域层次结构"。
+
+---
+
+### 4.4 若需要两条并行轴的分拆方案（简要建议）
+
+| 轴 | 档位 | 视觉特征 |
+|-----|------|---------|
+| **A：请求-响应异步** | 0—3 | 与替代文案 0—3 相同 |
+| **B：流式异步** | 0 | 无流式类型 |
+| | 1 | 出现 `Observable`/`Flow`/`Mono`/`Flux` 类型声明 |
+| | 2 | 链式操作符管道（≥3 个操作符串联） |
+| | 3 | 跨文件的流拓扑（生产者-消费者通过流类型连接） |
+
+协程可以：
+- 归入轴 A 的高档（作为 async/await + 结构化并发的延伸）
+- 或独立为轴 C
+
+---
+
+## 五、信息来源声明
+
+| 建议内容 | 来源类型 |
+|----------|---------|
+| "响应式流与 async/await 是不同的范式（推模型 vs 拉模型），不应视为同一线性轴的更高阶段" | **基于公开资料**：Stack Overflow 讨论明确区分 pull-based async enumerable 与 push-based Rx notifications[reference:5] |
+| "callback → Promise → async/await 是同一视觉轴的单调递进" | **基于公开资料**：多篇文章描述了这一演进路径的视觉变化——callback 金字塔缩进 → .then() 扁平链 → async/await 的同步式外观[reference:6][reference:7][reference:8] |
+| "Flux/Mono 是 Reactive Streams 规范的核心类型，代表 0..N 和 0..1 元素序列" | **基于公开资料**：Project Reactor 参考文档[reference:9] |
+| "事件循环启动器是架构层面判断，不应纳入单文件代码外观量表" | **推断**：基于逻辑分析——事件循环启动器仅在项目根文件可见，与 0—4 档的单文件视觉原则不一致 |
+| "第 5 档的'所有模块均基于异步消息/回调'超出单文件视觉审查范围" | **推断**：基于维度一致性的逻辑要求——需要跨文件依赖分析的行为不属于"看一个文件即可判断"的外观审查 |
+| 6 条替代文案的具体措辞 | **推断**：基于对现有量表缺陷的分析和纯视觉原则的推演，参考了公开资料中的术语和代码外观描述 |
+| 量表拆分为两条并行轴（请求-响应 vs 流式）的建议 | **推断**：基于范式差异的逻辑分析，用于解决线性轴无法容纳异质范式的问题 |
+
+---
+
+## 六、总结
+
+**信号词 — 核心发现 (Core Findings)**：
+
+1. **维度名称**可接受但建议将 "Concurrency" 替换为更精确的 "Syntax" 或 "Style"，以避免引入真实并发性能/架构判断的风险。
+2. **0—3 档形成单调递进的视觉轴**，轴心是"异步语法的屏幕覆盖率"。
+3. **4 档（响应式流/协程）发生范式切换**——它们不是 async/await 的"更高级阶段"，而是不同的编程模型。
+4. **5 档（项目根事件循环）发生维度穿越**——从"单个文件代码外观"跳到了"项目架构"维度。
+5. **建议**：要么将 4—5 档调整为基于纯视觉原则的延伸描述（如替代文案），要么拆分为两条并行轴分别衡量请求-响应异步和流式异步。
+
+Citations:
+- [reference:0] Exact page | 从回调地狱到优雅异步：JavaScript 异步编程的完整演进之路 | https://juejin.cn/post/7616405104521199650
+- [reference:1] Exact page | The Secret Life of JavaScript: The Promise | https://dev.to/aaron_rose_0787cc8b4775a0/the-secret-life-of-javascript-the-promise-4h68
+- [reference:2] Exact page | The Secret Life of JavaScript: The Promise | https://dev.to/aaron_rose_0787cc8b4775a0/the-secret-life-of-javascript-the-promise-4h68
+- [reference:3] Search result set | query=reactive streams async await adoption comparison different axis | candidates=7
+  candidate 1: A code example illustrating the difference between the paradigms of async/await and Reactive (Rx) extension? | https://www.iditect.com/faq/csharp/a-code-example-illustrating-the-difference-between-the-paradigms-of-asyncawait-and-reactive-rx-extension.html
+  candidate 2: Combine v.s. Async/Await | https://forums.kodeco.com/t/combine-v-s-async-await/160323/1
+  candidate 3: Converting RxJS Observables to Async/Await | https://dev.to/lucaspereiradesouzat/converting-rxjs-observables-to-asyncawait-1m0f
+  candidate 4: Events vs Streams vs Observables vs Async Iterators | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/39439653/events-vs-streams-vs-observables-vs-async-iterators
+  candidate 5: Reactive Data Without the Async Headaches | https://dev.to/robert_sanders_04918a4344/reactive-data-without-the-async-headaches-5fbd#comments
+  ... 2 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=reactive streams async await adoption comparison different axis | candidates=7
+  candidate 1: A code example illustrating the difference between the paradigms of async/await and Reactive (Rx) extension? | https://www.iditect.com/faq/csharp/a-code-example-illustrating-the-difference-between-the-paradigms-of-asyncawait-and-reactive-rx-extension.html
+  candidate 2: Combine v.s. Async/Await | https://forums.kodeco.com/t/combine-v-s-async-await/160323/1
+  candidate 3: Converting RxJS Observables to Async/Await | https://dev.to/lucaspereiradesouzat/converting-rxjs-observables-to-asyncawait-1m0f
+  candidate 4: Events vs Streams vs Observables vs Async Iterators | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/39439653/events-vs-streams-vs-observables-vs-async-iterators
+  candidate 5: Reactive Data Without the Async Headaches | https://dev.to/robert_sanders_04918a4344/reactive-data-without-the-async-headaches-5fbd#comments
+  ... 2 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=reactive streams async await adoption comparison different axis | candidates=7
+  candidate 1: A code example illustrating the difference between the paradigms of async/await and Reactive (Rx) extension? | https://www.iditect.com/faq/csharp/a-code-example-illustrating-the-difference-between-the-paradigms-of-asyncawait-and-reactive-rx-extension.html
+  candidate 2: Combine v.s. Async/Await | https://forums.kodeco.com/t/combine-v-s-async-await/160323/1
+  candidate 3: Converting RxJS Observables to Async/Await | https://dev.to/lucaspereiradesouzat/converting-rxjs-observables-to-asyncawait-1m0f
+  candidate 4: Events vs Streams vs Observables vs Async Iterators | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/39439653/events-vs-streams-vs-observables-vs-async-iterators
+  candidate 5: Reactive Data Without the Async Headaches | https://dev.to/robert_sanders_04918a4344/reactive-data-without-the-async-headaches-5fbd#comments
+  ... 2 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Exact page | 🔒 Mastering JavaScript Async Patterns: From Callbacks to Async/Await | https://tsecurity.de/de/2331311/IT+Programmierung/Mastering+JavaScript+Async+Patterns%3A+From+Callbacks+to+Async%2FAwait/
+- [reference:7] Exact page | The Secret Life of JavaScript: The Promise | https://dev.to/aaron_rose_0787cc8b4775a0/the-secret-life-of-javascript-the-promise-4h68
+- [reference:8] Exact page | 从回调地狱到优雅异步：JavaScript 异步编程的完整演进之路 | https://juejin.cn/post/7616405104521199650
+- [reference:9] Exact page | 【Reactor学习-四——Reactor核心！功能！】 | https://blog.csdn.net/dangkei/article/details/131203334
+- [citation] 【全面拥抱await，放弃.then】 | https://blog.csdn.net/qq_49712611/article/details/136424341
+- [citation] 【英】Ajax:从回调地狱到async和await | https://juejin.cn/post/6844903550170955784
+- [citation] 【转】动态图演示 Promises & Async/Await 的过程 | https://www.cnblogs.com/oxspirt/p/12983962.html
+- [citation] 🔒 Simplify Async Programming with Kotlin Coroutines | https://tsecurity.de/de/2543969/IT+Programmierung/Simplify+Async+Programming+with+Kotlin+Coroutines/de/11/IT+Reverse+Engineering/Sicherheitsl%C3%BCcken/de/16/IT+Betriebssysteme/Windows+Tipps/
+- [citation] 翻译：⭐️🎀可视化的 JavaScript Promises & Async/Await | https://zhuanlan.zhihu.com/p/467601693
+- [citation] 惊艳！可视化的 js：动态图演示 Promises & Async/Await 的过程！ | https://cloud.tencent.com.cn/developer/article/1636489?from=15425&frompage=seopage
+- [citation] 可视化的 js：动态图演示 Promises & Async/Await 的过程 | https://blog.csdn.net/fd2025/article/details/124565446
+- [citation] 内容比较 | https://profoundlogicsupport.atlassian.net/wiki/pages/diffpagesbyversion.action?pageId=164507997&selectedPageVersions=6&selectedPageVersions=7
+- [citation] 响应式编程和Reactive Streams | https://blog.csdn.net/weixin_42373241/article/details/137786811
+- [citation] 异步的前世今生 | https://juejin.cn/post/6905548754435178504
+- [citation] async-inspect 0.2.0 | https://docs.rs/crate/async-inspect/latest
+- [citation] asynchronous-programming | https://codereviewbot.ai/tags/en-US/asynchronous-programming
+- [citation] blockbuster - pypi Package Security Analysis - Socket | https://socket.dev/pypi/package/blockbuster
+- [citation] Concurrency | ryanmcdermott/clean-code-javascript | DeepWiki | https://deepwiki.com/ryanmcdermott/clean-code-javascript/8-concurrency
+- [citation] Coroutines Framework | davinci-tech/hh | DeepWiki | https://deepwiki.com/davinci-tech/hh/3.1-coroutines-framework
+- [citation] crowding/async: vignettes/README.Rmd | https://rdrr.io/github/crowding/async/f/vignettes/README.Rmd
+- [citation] crowding/generators: scratch/caption.Rmd | https://rdrr.io/github/crowding/generators/f/scratch/caption.Rmd
+- [citation] Deep Dive into Node.js with James Snell - This Dot Labs | https://labs.thisdot.co/blog/deep-dive-into-node-js-with-james-snell/
+- [citation] Detecting Blocking Tasks in Asyncio by Measuring Event Loop Latency | Mergify | https://mergify.com/blog/detecting-blocking-tasks-in-asyncio-by-measuring-event-loop-latency/
+- [citation] dharma/event_loop.rs | https://docs.rs/dharma/0.1.0/src/dharma/event_loop.rs.html
+- [citation] From Callbacks to Promises - The Evolution of Asynchronous JavaScript in ES6 Explained | https://moldstud.com/articles/p-from-callbacks-to-promises-the-evolution-of-asynchronous-javascript-in-es6-explained
+- [citation] Google Summer of Code 2023 – Parallel Stacks for Kotlin Coroutines in the Debugger | https://kotlinfoundation.org/news/gsoc-2023-parallel-stacks/#coroutine-stacks
+- [citation] graphAsync: Draw a graph representation of a coroutine. | https://www.rdocumentation.org/packages/async/versions/0.3/topics/graphAsync
+- [citation] graphAsync: Draw a graph representation of a coroutine. in crowding/generators: Coroutines: Generators / Yield, Async / Await, and Streams | https://rdrr.io/github/crowding/generators/man/graphAsync.html
+- [citation] HarmonyOS Next Concurrency Basics: Coroutines and Structured Concurrency | https://dev.to/xun_wang_6384a403f9817c2/harmonyos-next-concurrency-basics-coroutines-and-structured-concurrency-c84#comments
+- [citation] HarmonyOS Next IM Practical Combat: Handling Logical Error Bugs Caused by the Lack of await in Asynchronous Operations | https://dev.to/qingkouwei/harmonyos-next-im-practical-combat-handling-logical-error-bugs-caused-by-the-lack-of-await-in-1938
+- [citation] HarmonyOS Next IM实战：异步缺乏await导致的逻辑错误Bug处理 | https://segmentfault.com/a/1190000046648901?anchor=comment-area
+- [citation] JavaScript Advanced Series (Part 3): Promises & Async/Await | https://dev.to/jackm_345442a09fb53b/javascript-advanced-series-part-3-promises-asyncawait-1609
+- [citation] js 使用async await 捕获异常_可视化的 js：动态图演示 Promises & Async/Await 的过程 | https://blog.csdn.net:443/weixin_30444111/article/details/112078725
+- [citation] Mailman 3 avoiding accidentally calling blocking code - Async-sig | https://mail.python.org/archives/list/async-sig@python.org/thread/2FGFGU5FO45J5TGOGARBVIXOWTRUOLMD/?noscript
+- [citation] Marble Diagrams How to Read and Understand Reactive Operators - kindatechnical() | https://kindatechnical.com/reactive-processing/marble-diagrams-how-to-read-and-understand-reactive-operators.html
+- [citation] Node.js Event Loop and Asynchronous Programming | https://startup-house.com/blog/nodejs-event-loop-and-asynchronous-programming
+- [citation] Project Reactor reactive programming | https://www.programmersought.com/article/89407470068/
+- [citation] Promise and async/await | https://velog.io/@_jouz_ryul/Promise-and-asyncawait
+- [citation] reactive streams的Mono及Flux | https://blog.csdn.net/qq_18671415/article/details/111866859
+- [citation] Redis 事件驱动框架（ae.c_ae.h）深度解析 | https://blog.csdn.net/qq_44916583/article/details/151749328
+- [citation] Responsive learning (3) ProjectReactor | https://www.programmersought.com/article/44979911850/
+- [citation] Testing Coroutines and Asynchronous Calls | https://beta.educative.io/courses/ultimate-guide-programming-in-kotlin/testing-coroutines-and-asynchronous-calls
+- [citation] Untitled :: Reactor Core Reference Guide | https://docs.spring.io/projectreactor/reactor-core/docs/3.7.0-M3/reference/html/apdx-howtoReadMarbles.html
+- [citation] WebDevPro #102: Taming Asynchronous Control Flow in Node.js: From Callback Hell to Elegant Patterns | https://www.packtpub.com/en-us/learning/webdevpro/webdevpro-102-taming-asynchronous-control-flow-in-nodejs-from-callback-hell-to-elegant-patterns
+- [citation] Why Modern JavaScript Developers Are Moving Away from Callbacks and Frameworks (and Where WebAssembly Fits In) | https://dev.to/xinjie_zou_d67d2805538130/why-modern-javascript-developers-are-moving-away-from-callbacks-and-frameworks-and-where-27jn
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: e0538947-6005-499c-8d13-1baf52aa2a01

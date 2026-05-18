@@ -1,0 +1,355 @@
+**回复ID: ImportOrganizationVisualScale-20260518-001**
+
+## 评估摘要
+
+**核心结论：当前 0-5 档文案基本形成单调、清晰、可肉眼观察的视觉量表，无需整体替换。唯一需要修改的问题在档位 4 和 5——两者均涉及"未使用导入的残留"和"工具生成标记"，构成概念混淆。只需要零改动替代（zero-change replacement）即可解决——即删除这两个概念。具体而言：档位 4 删除"无任何未使用的导入残留"从句，档位 5 整体重写以反映极端的字母排序约束而非工具生成标记。以下逐条说明。**
+
+---
+
+## 1. 主流语言风格指南对导入位置、分组、排序和空行分隔的描述
+
+**`[核心发现]`** 主流语言风格指南在导入组织方面呈现出高度的跨语言共识，但细节差异显著。
+
+**PEP 8（Python）** 明确要求导入按以下顺序分组：标准库导入（standard library imports）、相关第三方导入（related third party imports）、本地应用程序/库特定导入（local application/library specific imports），每组之间应放置一个空行[reference:0][reference:1]。此外，`__future__` 导入的归属存在争议——有开发者认为它是编译器指令而非普通导入，应独立置于最前[reference:2]。
+
+**Google Java Style Guide** 规定静态导入（static imports）置于最前，然后是非静态导入，各组内按 ASCII 字母序排列[reference:3]。Google C++ 风格指南中，头文件包含（`#include`）同样要求分组和排序。
+
+**Cargo/Rust 风格指南** 建议在 `Cargo.toml` 中将依赖分组，而代码层面的 `use` 语句通常按标准库、外部 crate、本地 crate 的顺序排列[reference:4]。
+
+**`[信号]`** **Google Java Style Guide**（Google Java 风格指南）甚至要求 `com.*` 导入单独成组，第三方导入按顶级包名分组，各组按 ASCII 排序[reference:5]。
+
+**`[边界说明]`** 值得注意的是，不同风格指南对分组粒度差异极大：PEP 8 仅分三层（stdlib/第三方/本地），而 Spring Framework 的代码风格要求更细的分组（如 `java`、`javax`、`org`、`com` 各成一组）[reference:6]。Google 的 Android 代码风格甚至将 Java 导入放在最底部，理由是"人们最想看的导入往往在底部"[reference:7]。
+
+---
+
+## 2. Linters、Formatters 和 Import Sort 工具的规则
+
+**`[核心发现]`** 几乎所有主流语言的生态中都存在专门的导入排序工具，其规则高度一致：分组 → 排序 → 去重 → 移除未使用导入。
+
+**Python 生态：isort** 按字母序排序导入，并自动分离为段落和按类型分组[reference:8]。`flake8-import-order` 作为 flake8 插件，专门检查导入排序但不检查其他属性[reference:9]。
+
+**Java 生态：Checkstyle** 的 `ImportOrder` 规则支持按包前缀或正则表达式分组导入，要求各组间有空行分隔，组内按字典序排序[reference:10]。选项 `separated` 控制类型导入组之间是否至少由一个空行或注释分隔[reference:11]。
+
+**Go 生态：goimports** 将导入分为标准库优先，随后是第三方包，各组内按字母排序，`-local` 标志可将项目特定导入分离为独立的组[reference:12]。更高级的工具如 `gofancyimports` 支持四层分组：std、general、company、project[reference:13]。
+
+**JavaScript/TypeScript 生态：ESLint** 的 `sort-imports` 规则检查所有导入声明，验证它们首先按使用的成员语法排序，然后按第一个成员或别名名称的字母顺序排序[reference:14]。`eslint-plugin-import` 的 `import/order` 规则则按分组、空行、字母排序三个维度同时检查[reference:15]。**`[信号]`** Biome 的 `organizeImports` 动作更进一步——将导入分离为**块（chunks）**，块遇副作用导入（side-effect import）即终止，每个副作用导入自成一块[reference:16]。
+
+**Rust 生态：rustfmt** 的 `group_imports = "StdExternalCrate"` 选项将导入分为标准库（std, core, alloc）、外部 crate、本地 crate/self/super 三组[reference:17]。
+
+**`[边界说明]`** 关于未使用导入（unused imports）：ESLint 的 `no-unused-vars` 规则检测未使用的导入并报告警告[reference:18]。但这本质上是**代码质量/正确性检查**，而非外观格式化。将未使用导入归入"外观"维度在概念上存在张力——它更接近功能性问题（死代码）而非视觉整洁度。
+
+---
+
+## 3. 代码审查资料中关于导入块外观的观点
+
+**`[核心发现]`** 一致的导入排序被广泛认为能显著降低代码审查中的噪音。
+
+OpenDaylight 项目的代码审查讨论明确指出：**`[信号]`** "Agreeing a consistent import ordering really helps to avoid noise when doing code review"（就一致的导入排序达成一致确实有助于避免代码审查中的噪音），并使开发者能够自信地使用 IDE 的"组织导入"功能，而无需手动调整[reference:19][reference:20]。
+
+**`[信号]`** 代码格式化被认为是"审美（Aesthetics）"问题，属于计算机应自动修复的部分——**导入排序（Import Ordering）**：排序和分组你的导入语句[reference:21]。这明确将导入排序归类为外观维度，而非逻辑或语义维度。
+
+Spring Framework 的代码风格指南将导入语句的排序和分组视为代码格式化的核心组成部分[reference:22]。
+
+不过也有相反观点：部分开发者认为分组导入反而使导入更难维护和阅读，尤其是当分组依据不是包边界而是其他任意标准时。Zope 社区的编码风格讨论中提到： **`[信号]`** "Grouping imports makes imports harder to maintain and read, especially since groupings are arbitrary unless they follow package boundaries"（分组导入使导入更难维护和阅读，尤其是当分组是任意的且不遵循包边界时）[reference:23]。这提示我们：**并非所有开发者都视"分组"为正面特质**。
+
+---
+
+## 4. 反例：特殊导入顺序、副作用导入、条件导入与工具生成导入
+
+**`[核心发现]`** 有多种合法场景下的导入组织方式不符合"标准三层分组 + 字母排序"的范式，这些构成了视觉量表的边界条件。
+
+### 4.1 副作用导入（Side-Effect Imports）
+
+在 JavaScript/TypeScript 中，`import "x";`（bare import）没有引入任何绑定，仅为了执行模块的副作用。Prettier 的 `@ianvs/prettier-plugin-sort-imports` 插件的**首要和最具区分度的特性是副作用导入不移动，其他导入不在它们之间排序**[reference:24][reference:25]。Biome 同样将每个副作用导入视为独立块（chunk），不与周围导入合并排序[reference:26]。这意味着：即使文件中存在字母排序的导入块，副作用导入仍可能以"看似随机"的位置散落其间——这**不是外观缺陷，而是语义需求**。
+
+### 4.2 条件导入（Conditional Imports）
+
+Rust 中使用 `#[cfg(target_os = "linux")]` 等进行条件编译导入。Google crosvm 项目的平台特定代码风格指南要求：**`[信号]`** "Order imports such that common comes first followed by linux and windows dependencies"（排序导入，使公共依赖在前，其次是 Linux 和 Windows 依赖）[reference:27][reference:28]。Swift 中使用 `canImport()` 编译指令进行条件框架导入[reference:29]。这些条件下的导入顺序由平台的逻辑分组决定，而非字母序。
+
+### 4.3 工具生成导入（Tool-Generated Imports）
+
+IDE（如 PyCharm、WebStorm）的自动导入功能按照 PEP 8 指引生成导入语句格式，默认使用 `goimports` 风格排序[reference:30][reference:31]。但这些工具生成的导入**不包含任何可见的"固定排序标记"（如注释分隔符）**——它们只是格式化良好的普通导入行。用户文案中的"工具生成的固定排序标记"概念指向一种特定实践（如 `// @sort` 注释），这在实际中并不常见。
+
+### 4.4 Haskell 的 Qualified Imports
+
+Haskell 中 `import qualified Prelude` 有其独特的语义含义，不仅影响外观还影响调用方式（需加前缀）。关于是否在所有符号上使用合格导入存在争议——有人认为对所有 Prelude 符号使用合格名会导致代码如 `Prelude.+` 般冗长[reference:32][reference:33]。
+
+### 4.5 Python 的 `__init__.py` 副作用
+
+导入一个包时，其 `__init__.py` 的顶层代码会自动执行。这种"导入即副作用"的模式可能导致 lint 工具报告"未使用的导入"，但实际上该导入是必需的[reference:34]。
+
+---
+
+## 5. 汇总：对"代码长什么样"的启发
+
+综合以上资料，以下几点对导入组织外观维度的设计至关重要：
+
+1. **导入组织的外观核心要素是：位置（是否在文件顶部集中）、分组（是否按来源类别分隔）、排序（组内是否有序）、间距（组间是否有空行）。** 这四个要素都是可肉眼观察的，且构成自然递进关系。
+
+2. **未使用的导入（unused imports）是代码正确性问题，不是外观问题。** ESLint 将其归类为 `no-unused-vars` 而非 `sort-imports`[reference:36]。在"外观"维度中混入正确性检查会造成概念混淆。
+
+3. **"工具生成的固定排序标记"不是广泛存在的行业实践。** 主流工具（isort、goimports、rustfmt、Checkstyle、ESLint）都不在源码中插入排序标记。唯一近似的是 `prettier-ignore` 注释（用于跳过特定导入行的格式化）或 Biome 中的注释分隔块（detached comments）[reference:37]。将此作为最高档位（5 档）会误导用户认为"机械化的工具标记"是最理想的外观状态。
+
+4. **副作用导入是合法的语义需求，不是外观缺陷。** 应将副作用导入排除在外观评判之外，或至少在顶级档位说明其边界。
+
+---
+
+## 6. 逐档审查：当前 0-5 档文案
+
+### 档位 0
+
+> 导入语句散落在文件各处，前后无规律，行间夹杂空行或注释，看不出任何整理痕迹
+
+**评估：✅ 合理。** "散落"、"无规律"、"看不出整理痕迹"清晰描述了最低组织水平。可被肉眼直接观察到。
+
+### 档位 1
+
+> 导入按首次被引用的先后依次出现，不显式分组，块内无明显空行分隔
+
+**评估：✅ 合理。** 描述了"有顺序但无分组"的状态，比档位 0 有明显提升（导入至少集中在文件某处且有序）。"按首次被引用的先后"是一种常见的自然出现顺序，常见于未配置格式化工具的项目。
+
+### 档位 2
+
+> 导入被空行分成若干簇，每簇来自同一类来源，组间边界肉眼可辨
+
+**评估：✅ 合理。** 描述了"有分组但无严格分层排序"的状态——存在多个簇，但簇之间可能是任意顺序（不一定是 stdlib→第三方→本地的标准分层）。这是 PEP 8 分层之前的自然中间态。
+
+### 档位 3
+
+> 文件顶部出现三个被空行隔开的导入区块，依次为标准库、第三方库、本地模块，区块内部按字母排列
+
+**评估：✅ 合理。** 精确描述了 PEP 8 推荐的标准三层结构 + 字母排序，与 isort 的默认行为一致。是对档位 2 的明确提升。
+
+### 档位 4
+
+> 导入区整洁紧凑，无任何未使用的导入残留，字母排序严整，像被自动格式化工具刚处理过一样
+
+**评估：❌ 需要修改。** 问题如下：
+- **"无任何未使用的导入残留"混入了正确性检查**，超出了"外观"的边界。未使用的导入在视觉上仍然可以"看起来整洁"，只是语义上有问题。
+- 文案意图（"像被自动格式化工具刚处理过一样"）是正确的——描述一种"极致整洁、无懈可击"的外观。但"无未使用导入"不是外观属性。
+- **建议修改：删除"无任何未使用的导入残留"从句。**
+
+### 档位 5
+
+> 导入块带有工具生成的固定排序标记，每行导入如镜像般对齐，顺序完全机械化
+
+**评估：❌ 需要修改。** 问题如下：
+- **"工具生成的固定排序标记"不是广泛存在的行业实践。** 主流格式化工具不会在源码中插入任何排序标记。
+- "如镜像般对齐"描述了一种极端整齐的外观状态，但这可以通过档位 4 的自然外观来表达，无需引入"标记"这一非标准概念。
+- 如果 5 表示最高档位，它应该是对字母排序的进一步收紧（例如多级子排序），而非引入新概念（标记）。
+- 与档位 4 的区分度不足：档位 4 的"整洁紧凑 + 字母排序严整"已经是工具处理后外观的充分描述。
+- **建议：整体重写档位 5，使其表达"更极致的排序约束"而非"工具标记"。**
+
+---
+
+## 7. 修改建议：仅限本维度 6 条替代文案
+
+以下为修改后的完整 0-5 档文案（**仅档位 4 和 5 有实质性修改，其余保持不变**）：
+
+- **0**：导入语句散落在文件各处，前后无规律，行间夹杂空行或注释，看不出任何整理痕迹
+- **1**：导入按首次被引用的先后依次出现，不显式分组，块内无明显空行分隔
+- **2**：导入被空行分成若干簇，每簇来自同一类来源，组间边界肉眼可辨
+- **3**：文件顶部出现三个被空行隔开的导入区块，依次为标准库、第三方库、本地模块，区块内部按字母排列
+- **4**：导入区整洁紧凑，字母排序严整，块内无冗余空行，像被自动格式化工具刚处理过一样
+- **5**：导入区极致简约，每行结构统一（如单行单导入），组内排序严格一致，视觉上无可挑剔的规整
+
+### 修改说明
+
+| 档位 | 修改内容 | 理由 |
+|---|---|---|
+| 4 | 删除"无任何未使用的导入残留"，改为"块内无冗余空行" | 未使用导入属于正确性维度，不属于外观维度；"块内无冗余空行"是可观察的外观属性 |
+| 5 | 整体重写：删除"工具生成的固定排序标记"和"镜像般对齐" | 排序标记不是行业广泛实践，对齐（alignment）取决于行内容长度而非组织方式；新文案聚焦于"极致简约"和"视觉规整"，是对排序的进一步收紧而非引入新概念 |
+
+### 单调性验证
+
+| 档位 | 核心视觉特征 | 与上一档的递进关系 |
+|---|---|---|
+| 0 | 散落、无规律 | — |
+| 1 | 集中、按引用序 | 从"散落"到"集中" |
+| 2 | 有空行分组 | 从"无分组"到"有分组" |
+| 3 | 标准三层 + 字母排序 | 从"任意分组"到"标准分层 + 排序" |
+| 4 | 极致整洁 + 无冗余空行 | 从"有结构化"到"极致整洁" |
+| 5 | 结构统一 + 视觉规整 | 从"整洁"到"无可挑剔的规整" |
+
+各档位之间的递进关系清晰且可被肉眼独立判断，不存在概念混淆。
+
+Citations:
+- [reference:0] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Exact page | Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/z.archive.odlparent-dev/message/361?p=%2C%2C%2C20%2C0%2C0%2C0%3A%3ACreated%2C%2C%2C20%2C1%2C360%2C33231220
+- [reference:7] Exact page | Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/z.archive.odlparent-dev/message/361?p=%2C%2C%2C20%2C0%2C0%2C0%3A%3ACreated%2C%2C%2C20%2C1%2C360%2C33231220
+- [reference:8] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Exact page | ImportOrder | https://checkstyle.org/checks/imports/importorder.html#ImportOrder
+- [reference:11] Exact page | ImportOrder | https://checkstyle.org/checks/imports/importorder.html#ImportOrder
+- [reference:12] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:14] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:15] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Exact page | organizeImports | https://www.biomejs.cn/assist/actions/organize-imports/
+- [reference:17] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:18] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:19] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:20] Exact page | Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/z.archive.odlparent-dev/message/361?p=%2C%2C%2C20%2C0%2C0%2C0%3A%3ACreated%2C%2C%2C20%2C1%2C360%2C33231220
+- [reference:21] Exact page | Stop Fighting About Braces! Automating Java Code Style and Quality with Maven | https://towardsdev.com/stop-fighting-about-braces-automating-java-code-style-and-quality-with-maven-01f1dae96449
+- [reference:22] Exact page | Stop Fighting About Braces! Automating Java Code Style and Quality with Maven | https://towardsdev.com/stop-fighting-about-braces-automating-java-code-style-and-quality-with-maven-01f1dae96449
+- [reference:23] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:24] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:25] Exact page | peerigon/configs#157: chore(deps): bump @ianvs/prettier-plugin-sort-imports from 4.6.2 to 4.7.0 | https://dependabot.ecosyste.ms/hosts/GitHub/repositories/peerigon%2Fconfigs/issues/157
+- [reference:26] Exact page | organizeImports | https://www.biomejs.cn/assist/actions/organize-imports/
+- [reference:27] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:28] Exact page | Style guide for platform specific code | https://cocalc.com/github/google/crosvm/blob/main/docs/book/src/contributing/style_guide_platform_specific_code.md
+- [reference:29] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:30] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:31] Exact page | Auto import | WebStorm | https://www.jetbrains.com.cn/en-us/help/webstorm/2025.2/creating-and-optimizing-imports.html#ws_optimize_imports
+- [reference:32] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:33] Exact page | Qualified imports - Haskell-Cafe | https://mailman.haskell.org/archives/list/haskell-cafe@haskell.org/thread/FGYVUD4PSGJDK5VQ4ZALA2IQOTF7GAVO/?sort=thread
+- [reference:34] Search result set | query=code review import organization grouping blank lines best practices | candidates=40
+  candidate 1: [Odlparent-dev] Import ordering: Going Wiki or Checkstyle way? | https://lists.opendaylight.org/g/dev/topic/33227402
+  candidate 2: [Python-ideas] Re: __init__ in module names | https://mail.python.org/archives/list/python-ideas@python.org/message/RADVLG6XWKBDYYYFFTFGC6J7Q3KI7WDN/
+  candidate 3: [Zope-dev] Coding style clarifications | https://mail.zope.dev/pipermail/zope-dev/2009-February/034634.html
+  candidate 4: 基于条件导入文件- scss | https://cloud.tencent.com/developer/information/%E5%9F%BA%E4%BA%8E%E6%9D%A1%E4%BB%B6%E5%AF%BC%E5%85%A5%E6%96%87%E4%BB%B6-%20scss-ask
+  candidate 5: 一文教你看懂__init__.py这个被大家轻视的文件 | https://bbs.huaweicloud.com/blogs/452593
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:35] Structured reference | TOOL_OPEN#16 | no precise page mapping recovered in text output
+- [reference:36] Search result set | query=code review import organization grouping blank lines best practices | candidates=37
+  candidate 1: [controller-dev] Checkstyle rejecting default Eclipse import sort order? | https://lists.opendaylight.org/g/Discuss/topic/controller_dev_checkstyle/33241081?dir=asc
+  candidate 2: @jefferywa/eslint-plugin-import-sort | https://www.npmjs.com/package/@jefferywa/eslint-plugin-import-sort
+  candidate 3: /tests/fixtures/README.md - @hirochachacha/deno-lint-plugin-unused-fixer - JSR | https://jsr.io/@hirochachacha/deno-lint-plugin-unused-fixer/0.1.3/tests/fixtures/README.md
+  candidate 4: 查看源 | https://cwiki.apache.org/confluence/plugins/viewsource/viewpagesrc.action?pageId=49578361
+  candidate 5: 大佬们，请教一个 cursor 的问题 - V2EX | https://global.v2ex.co/t/1131757#reply2
+  ... 32 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:37] Exact page | organizeImports | https://www.biomejs.cn/assist/actions/organize-imports/
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: fe288586-0105-4aa4-9ab8-da330e4891b7

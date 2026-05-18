@@ -1,0 +1,226 @@
+回复ID: LogLevelVisualScale-20260518-001
+
+**维度审查与建议摘要**
+
+- 核心发现：该维度的0-5档文案整体上能形成从“无日志”到“日志淹没业务”的单调递增视觉序列。
+- 主要问题：维度名称“日志记录级别 (Logging Level)”存在严重的概念混淆——量表实际度量的是**日志语句在代码中的视觉密度和调用频率**，而非由框架常量（如 `DEBUG`、`INFO`、`TRACE`）定义的日志级别标准。当前名称会误导用户以为该维度是在评价日志级别选择的策略正确性。
+- 档位分析：0→1→2递增平稳且肉眼可辨；2→3存在维度跳跃（同时涉及级别降低和密度增加）；3→4→5递增成立但4→5的边界模糊。4档描述中的“三四行代码”可能过于绝对化。
+- 修改方案：建议将维度更名为“日志语句视觉密度 (Log Statement Visual Density)”，并给出6条替代文案，消除概念混淆，使每一档严格仅反映日志调用语句在屏幕上的可见占比。
+
+---
+
+## 1. 行业与工具资料对日志调用密度和级别外观的启发
+
+### 1.1 **日志级别（Logging Level）的行业共识**
+
+主流日志框架和风格指南对日志级别的定义高度一致。普遍认可的六级日志级别从低到高排列如下：
+
+| 级别 | 定位 | 典型特征 |
+|------|------|----------|
+| **TRACE** | 最详细的问题调查信息 | 可能包含大量消息和过量日志，是“最吵闹的级别”（noisiest level），默认关闭，设计用于大量放置以跟踪执行流[reference:0] |
+| **DEBUG** | 代码决策信息、开发人员诊断 | 粒度比 TRACE 粗，含变量状态和控制流细节[reference:1] |
+| **INFO** | 状态变更、业务里程碑 | 生产环境默认级别，是“假设软件运行时使用的级别”[reference:2] |
+| **WARN** | 可恢复的异常行为 | 已处理的错误和问题[reference:3] |
+| **ERROR** | 未处理的错误 | 需要立即关注[reference:4] |
+| **FATAL** | 致命错误 | 应用无法恢复，JVM 和框架使用[reference:5] |
+
+**要点**：TRACE 在设计上就比 DEBUG 更细粒度，开发者被期望在代码中放置大量 TRACE 语句以追踪执行流程。这直接支持当前量表将 TRACE 级别日志置于最高密度档位的设计[reference:6]。
+
+### 1.2 **静态分析与 Linter 规则对日志密度的约束**
+
+ESLint 的 `no-console` 规则在业界被广泛使用，直接在代码层面禁止遗留调试日志语句进入生产环境[reference:7]。Biome 项目的 `noConsole` 规则同样强调这类语句会“污染日志输出”[reference:8]。
+
+SonarQube 规则 **S6664** (`Reduce the number of Debug logging calls within this code block`) 直接针对过量 DEBUG 级别日志调用的密度问题。值得注意的是，社区讨论确认 TRACE 级别的调用最终被排除在该规则之外——因为 TRACE 级别**设计上就是用于大量放置的**，将其与 DEBUG 同等对待违背了该级别的设计意图[reference:9]。
+
+在性能优化指南中，“精简打印日志”被列为强烈推荐级别，高频次、冗余的日志输出会“干扰开发者调试关键信息”[reference:10]。关于日志滥用，有观点明确指出：在代码中“恨不得每段都有一个 log”会导致日志变成“大海捞针”，反而降低定位效率[reference:11]。
+
+### 1.3 **各语言日志语句的屏幕外观差异**
+
+不同语言的日志调用语句在屏幕上的视觉特征各有不同，但都表现为一行函数/方法调用，占用横向空间并形成视觉噪音：
+
+- **Java**：`logger.debug("Trying to delete row from the {} table by jobExecutionId = {}", ...)` 或 `LOGGER.info("sumWithCondition:: result: {}", sumResult)`。Java 日志语句通常较长，含全限定类名、方法名和参数，占用屏幕横向空间显著[reference:12][reference:13]。
+- **JavaScript/TypeScript**：`console.log("Made it here.")` 或 `console.error("That shouldn't have happened.")`。`console` 对象提供 `log`、`warn`、`error`、`info` 等多种方法，语句通常简洁，但也有 `console.group` 等复杂用法[reference:14][reference:15]。
+- **Python**：`logging.debug("Some message here")` 或 `log.info("foo")`。Python 的 `logging` 模块调用形式类似函数调用，可通过 `logging.basicConfig` 控制输出格式[reference:16]。
+- **Go**：`log.Printf("message")` 或 `slog.Info("message", "key", value)`。Go 原生日志简洁，结构化日志框架（如 `slog`）则采用键值对形式，语句可能更长[reference:17]。
+
+**共同特征**：无论语言如何，日志语句在代码中均表现为独立的调用行，可以被肉眼直接观察到。日志越多，业务逻辑在屏幕上的占比越低，形成视觉密度梯度。
+
+### 1.4 **反例：密集日志的需求场景与不应有日志的场景**
+
+**需要密集日志的系统场景**（本维度边界之外）：全执行追踪/“近全知调试”工具（Near-Omniscient Debugging）用于无法附加调试器的环境（如持续集成、Web 应用服务器场景），会在每个方法入口/出口甚至每条指令后记录信息[reference:18]。这类系统使用专门的字节码注入或 AOP 框架，不属于正常的业务代码日志调用范畴。AOP/探针式全方法追踪应明确排除在本量表之外——它们是自动化注入，非人工手写日志。
+
+**不应有日志的场景**（本维度边界之内）：空 `catch` 块不记录日志、简单 getter/setter 写入日志、低价值重复日志（如“start processing”/“exiting”这类无参数消息）、将日志当作代码注释使用，均属于低分档位的典型表现[reference:19][reference:20]。
+
+**本维度边界**：维度仅度量**人工手写在业务代码中的日志调用语句**的屏幕可见密度，不涉及自动注入的探针/追踪框架、不涉及日志策略正确性判断、不涉及运行时日志输出量。
+
+### 1.5 **汇总：对“代码长什么样”的启发**
+
+综合以上资料，“代码外观”量表中日志维度的评判标准应聚焦于以下几点：
+- **可见性**：日志调用语句本身是否在屏幕上可见。级别（TRACE/DEBUG/INFO）只是密度增加的手段，核心度量对象是调用语句的数量和占比。
+- **密度**：日志语句行数占文件/方法总行数的比例。
+- **位置**：日志出现在何处（启动/崩溃边缘、核心业务方法内、条件分支和循环内、几乎每一行之间）。
+- **模式**：从“无日志”→稀疏的关键点→中等密度的分支覆盖→高密度全方法跟踪的渐变。
+
+不应评判的因素包括：日志级别选择的策略正确性、日志消息格式是否规范、是否包含敏感信息、以及运行时日志输出对性能的影响。
+
+
+## 2. 当前0-5档文案的量表评估
+
+### 2.1 **名称准确性**
+
+**存在问题**。当前名称“日志记录级别 (Logging Level)”与量表实际测量的内容不匹配：
+
+- 日志级别在行业语境中是框架定义的常量，如 `DEBUG`、`INFO`、`WARN`、`ERROR`、`TRACE`，属于日志策略范畴。
+- 该量表实际度量的是**日志调用语句在代码屏幕上的可见密度**，即“代码中有多少行是日志语句”。
+
+混淆后果：若用户被问及“这段代码的日志级别如何”，会理解成在问“用的是 DEBUG 还是 INFO”，而非“屏幕上日志多不多”。[reference:21]中也指出对日志级别的错误认知是滥用的原因之一——这恰恰说明需要区分“级别”和“密度”。
+
+**建议**：更名为“日志语句视觉密度 (Log Statement Visual Density)”或“日志调用密度 (Log Call Density)”。
+
+### 2.2 **单调递增性**
+
+0→1→2 递增平稳，肉眼可辨：从“完全没有”（0）到“只有极少数”（1）到“核心方法中点缀若干”（2）。
+
+2→3 存在**维度跳跃**：从“INFO 级别标记关键步骤”跳到“DEBUG 级别在分支、循环内增多”，同时涉及两个变量——级别降低（INFO→DEBUG）和密度增加。跳跃本身仍是递增的，但用户可能在档位间感到断裂。
+
+3→4→5 递增成立：3是“比业务代码更细密的网格”，4是“每三四行代码夹一行日志”，5是“日志淹没业务逻辑”。
+
+但 4→5 的边界模糊：TRACE 级别本就是 DEBUG 的更细粒度版本，两者在实际密度上的差别很大程度上取决于项目中 log 语句的放置习惯，而非必然肉眼可辨。
+
+### 2.3 **概念混淆**
+
+存在以下混淆：
+
+**(a) 日志级别 ↔ 日志密度**。这是最严重的混淆。0档、1档、4档完全以“是否存在调用”和“调用频率”来描述，与日志级别无关；但 2、3、5 档明确引用了 INFO、DEBUG、TRACE 等具体级别名称。这导致量表出现不可比较的尺度：是按“有没有日志语句”打分，还是按“使用了什么级别”打分？
+
+**(b) 日志位置 ↔ 日志密度**。1 档强调位置（“文件首尾”、“启动和崩溃边缘”），2 档强调位置（“核心业务方法内”），3 档强调位置（“条件分支、循环内部”）。这些位置信息有助于肉眼观察，但它们与密度并不总是正相关——一个文件可能仅在核心方法内有密集日志，也可能在所有位置都有稀疏日志。
+
+**(c) 日志策略正确性 ↔ 日志密度**。2 档“消息简短，如路标般标记了关键步骤”隐含了对日志质量的正面评价。这会导致用户困惑：一个日志书写规范但密度适中的文件，和一个日志书写不规范但密度相同的文件，在该维度下是否应获得相同评分？
+
+### 2.4 **是否有不必要的误导**
+
+**(a) TRACE 的跨项目命名差异**。不同框架和语言中，最细粒度日志级别的名称不同：Java 体系使用 `TRACE`（Log4j/Logback），Python `logging` 模块使用 `DEBUG` 作为最细粒度（但可自定义），Go 的 `slog` 使用 `Debug`，.NET 使用 `Trace`。5 档的“TRACE 级别”描述在某些语言生态中可能无法直接映射。不过，由于 TRACE 被主流框架文档一致定义为“比 DEBUG 更细粒度、更吵闹的级别”，这一误导程度有限，可在文案中以更低耦合的方式表达[reference:22]。
+
+**(b) “三四行代码”的绝对化描述**。4 档的“每三四行代码就夹着一行日志”使用了过于精确的量化表述，但不同代码风格（如紧凑的单行写法 vs 空行丰富的写法）下实际视觉占比差异很大。建议使用更模糊但更普适的描述。
+
+**(c) 缺失的 WARN/ERROR 维度**。量表未涉及 WARN 和 ERROR 级别，这可能让用户误以为只有 INFO→DEBUG→TRACE 的路径。实际上 ERROR 日志也占据屏幕空间，且通常在视觉上更醒目（如红色标记）。但考虑到量表的目标是度量“开发者主动放置日志的密度”，而 ERROR 日志通常是被动触发的（异常处理），将其排除有一定合理性。可考虑在维度备注中说明范围。
+
+
+## 3. 本维度修改建议
+
+基于上述分析，需要修改。原因：
+1. 维度名称必须修正，以消除“日志级别”和“日志调用密度”的概念混淆。
+2. 2、3、5 档对具体日志级别名称的引用应降低耦合度，转向以“密度”和“粒度”为主的纯视觉描述。
+3. 4 档的绝对化数字需要调整。
+4. 整体档位需确保从“无日志”到“日志占主导”的单调密度序列不被级别名称打断。
+
+### 3.1 建议名称
+
+**中文**：日志语句视觉密度
+**English**: Log Statement Visual Density
+
+### 3.2 替代文案（0-5 档）
+
+**0 — 无日志 (No Log Statements)**
+整个文件无任何与日志记录相关的导入、函数调用、方法调用或注释，仿佛运行时信息记录这一概念从未进入过作者的视野。
+
+**1 — 边缘痕迹 (Minimal Traces at Boundaries)**
+仅在文件首尾或顶层入口/出口处有零星一两条日志调用（如启动确认或崩溃捕获），主体逻辑区完全无日志语句。
+
+**2 — 关键节点标记 (Scattered at Key Junctures)**
+核心业务方法内出现若干日志调用，每条调用对应一个关键步骤或状态变更，日志语句在屏幕上的占比明显但远低于业务代码。
+
+**3 — 细密覆盖 (Dense Coverage in Branches)**
+日志调用渗透到条件分支、循环体内部和中间变量赋值之后，日志语句开始形成与业务代码交织的第二层文本网格，肉眼扫过时日志行的存在感显著增强。
+
+**4 — 日志与代码交织 (Log-Heavy, Nearly Every Few Lines)**
+日志调用密集到几乎每数行业务代码就间隔一行日志语句，屏幕被日志占去可观比例，业务逻辑的连续性被频繁打断。
+
+**5 — 日志主导 (Log-Dominated, Business Logic Submerged)**
+日志语句在数量上压倒业务逻辑，几乎每个方法入口/出口、每次变量赋值后都紧跟一条日志记录，读者需要费力在日志丛中寻找业务代码。
+
+### 3.3 修改说明
+
+| 问题 | 原案 | 修改方案 |
+|------|------|----------|
+| 维度名称混淆 | “日志记录级别” | 改为“日志语句视觉密度”，去耦合具体的日志级别术语 |
+| 2档引用 INFO | “核心业务方法内点缀着 info 日志” | 改为“若干日志调用”，以密度而非级别描述 |
+| 3档引用 DEBUG | “DEBUG 级别日志在条件分支、循环内部增多” | 改为“日志调用渗透到条件分支、循环体内部”，以位置+密度描述 |
+| 5档引用 TRACE | “TRACE 级别的日志淹没了业务逻辑” | 改为“日志语句在数量上压倒业务逻辑”，以密度主导描述 |
+| 4档绝对化数字 | “每三四行代码就夹着一行日志” | 改为“每数行业务代码就间隔一行日志”，使用模糊但普适的表述 |
+| 0档隐含评判 | “像从未考虑记录运行时信息” | 保留但弱化评判感，改为“仿佛……从未进入过作者的视野” |
+| 缺失单调递增统一锚点 | 混用级别/位置/密度 | 所有档位统一以“日志调用语句在屏幕上的可见数量和占比”为唯一锚点 |
+
+Citations:
+- [reference:0] Exact page | FP S6664 Reduce the number of Debug logging calls shouldn't take trace level into account | https://community.sonarsource.com/t/fp-s6664-reduce-the-number-of-debug-logging-calls-shouldnt-take-trace-level-into-account/153348
+- [reference:1] Exact page | 内容比较 | https://folio-org.atlassian.net/wiki/pages/diffpages.action?originalId=1779743&pageId=1779745
+- [reference:2] Search result set | query=密集日志 系统 场景 反例 不应 有 日志 | candidates=41
+  candidate 1: 避免高耗性能操作 | http://developers-watch.vivo.com.cn/reference/perf-guide/perf-dangerous/
+  candidate 2: 别把日志当废纸——HiLog 日志体系与调试技巧（Echo_Wish 私房话版）【华为根技术】 | https://bbs.huaweicloud.com/blogs/470529
+  candidate 3: 查看来源 | https://folio-org.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1780878
+  candidate 4: 高效避免HarmonyOS开发过程中的冗余操作 | https://cloud.tencent.cn/developer/article/2458910?from=15425
+  candidate 5: 开源日志框架的原理与分析(下) | https://bbs.huaweicloud.com/blogs/402853
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Exact page | 内容比较 | https://folio-org.atlassian.net/wiki/pages/diffpages.action?originalId=1779743&pageId=1779745
+- [reference:4] Exact page | 内容比较 | https://folio-org.atlassian.net/wiki/pages/diffpages.action?originalId=1779743&pageId=1779745
+- [reference:5] Exact page | 内容比较 | https://folio-org.atlassian.net/wiki/pages/diffpages.action?originalId=1779743&pageId=1779745
+- [reference:6] Exact page | FP S6664 Reduce the number of Debug logging calls shouldn't take trace level into account | https://community.sonarsource.com/t/fp-s6664-reduce-the-number-of-debug-logging-calls-shouldnt-take-trace-level-into-account/153348
+- [reference:7] Exact page | no-console - ESLint - Pluggable JavaScript Linter | https://eslint.org/docs/v9.x/rules/no-console
+- [reference:8] Search result set | query=密集日志 系统 场景 反例 不应 有 日志 | candidates=41
+  candidate 1: 避免高耗性能操作 | http://developers-watch.vivo.com.cn/reference/perf-guide/perf-dangerous/
+  candidate 2: 别把日志当废纸——HiLog 日志体系与调试技巧（Echo_Wish 私房话版）【华为根技术】 | https://bbs.huaweicloud.com/blogs/470529
+  candidate 3: 查看来源 | https://folio-org.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1780878
+  candidate 4: 高效避免HarmonyOS开发过程中的冗余操作 | https://cloud.tencent.cn/developer/article/2458910?from=15425
+  candidate 5: 开源日志框架的原理与分析(下) | https://bbs.huaweicloud.com/blogs/402853
+  ... 36 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Exact page | FP S6664 Reduce the number of Debug logging calls shouldn't take trace level into account | https://community.sonarsource.com/t/fp-s6664-reduce-the-number-of-debug-logging-calls-shouldnt-take-trace-level-into-account/153348
+- [reference:10] Exact page | 避免高耗性能操作 | http://developers-watch.vivo.com.cn/reference/perf-guide/perf-dangerous/
+- [reference:11] Exact page | 你滥用log了吗 | https://cloud.tencent.cn/developer/article/1476433?from=15425
+- [reference:12] Exact page | 查看来源 | https://folio-org.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1780878
+- [reference:13] Exact page | 查看来源 | https://folio-org.atlassian.net/wiki/plugins/viewsource/viewpagesrc.action?pageId=1780878
+- [reference:14] Exact page | 我是如何让 console 日志变聪明的，从此调试不再痛苦 | https://blog.csdn.net/qq449245884/article/details/148858433
+- [reference:15] Exact page | no-console - ESLint - Pluggable JavaScript Linter | https://eslint.org/docs/v9.x/rules/no-console
+- [reference:16] Search result set | query=Go log statement appearance code screen dense logging | candidates=29
+  candidate 1: [Moose-dev] Re: Moose-dev Digest, Vol 64, Issue 56 | https://list.inf.unibe.ch/hyperkitty/list/moose-dev@list.inf.unibe.ch/message/O2KNFIDC62UFGH622HQZKCW53BCCMRTZ/#like
+  candidate 2: 5.2 Trace | https://docs.huihoo.com/spring/dm-server/1.0.x/user-guide/ch05s02.html#rollover
+  candidate 3: 不做代码审查又怎样？| TW洞见 | https://cloud.tencent.cn/developer/article/1104348?from=15425
+  candidate 4: 上周code review的时候，发现一个同事把所有异常都用try-catch包起来，然后就ignore了。这种代码怎么能上线? | https://blog.csdn.net/jj1245_/article/details/152323304
+  candidate 5: 为什么92%的Go团队还在用console.Print？——Go结构化日志+可视化落地全链路解析， | https://datasea.cn/go0227513815.html
+  ... 24 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:17] Search result set | query=Go log statement appearance code screen dense logging | candidates=29
+  candidate 1: [Moose-dev] Re: Moose-dev Digest, Vol 64, Issue 56 | https://list.inf.unibe.ch/hyperkitty/list/moose-dev@list.inf.unibe.ch/message/O2KNFIDC62UFGH622HQZKCW53BCCMRTZ/#like
+  candidate 2: 5.2 Trace | https://docs.huihoo.com/spring/dm-server/1.0.x/user-guide/ch05s02.html#rollover
+  candidate 3: 不做代码审查又怎样？| TW洞见 | https://cloud.tencent.cn/developer/article/1104348?from=15425
+  candidate 4: 上周code review的时候，发现一个同事把所有异常都用try-catch包起来，然后就ignore了。这种代码怎么能上线? | https://blog.csdn.net/jj1245_/article/details/152323304
+  candidate 5: 为什么92%的Go团队还在用console.Print？——Go结构化日志+可视化落地全链路解析， | https://datasea.cn/go0227513815.html
+  ... 24 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:18] Search result set | query=Go log statement appearance code screen dense logging | candidates=29
+  candidate 1: [Moose-dev] Re: Moose-dev Digest, Vol 64, Issue 56 | https://list.inf.unibe.ch/hyperkitty/list/moose-dev@list.inf.unibe.ch/message/O2KNFIDC62UFGH622HQZKCW53BCCMRTZ/#like
+  candidate 2: 5.2 Trace | https://docs.huihoo.com/spring/dm-server/1.0.x/user-guide/ch05s02.html#rollover
+  candidate 3: 不做代码审查又怎样？| TW洞见 | https://cloud.tencent.cn/developer/article/1104348?from=15425
+  candidate 4: 上周code review的时候，发现一个同事把所有异常都用try-catch包起来，然后就ignore了。这种代码怎么能上线? | https://blog.csdn.net/jj1245_/article/details/152323304
+  candidate 5: 为什么92%的Go团队还在用console.Print？——Go结构化日志+可视化落地全链路解析， | https://datasea.cn/go0227513815.html
+  ... 24 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:19] Exact page | 内容比较 | https://folio-org.atlassian.net/wiki/pages/diffpages.action?originalId=1779743&pageId=1779745
+- [reference:20] Exact page | 你滥用log了吗 | https://cloud.tencent.cn/developer/article/1476433?from=15425
+- [reference:21] Exact page | 你滥用log了吗 | https://cloud.tencent.cn/developer/article/1476433?from=15425
+- [reference:22] Exact page | FP S6664 Reduce the number of Debug logging calls shouldn't take trace level into account | https://community.sonarsource.com/t/fp-s6664-reduce-the-number-of-debug-logging-calls-shouldnt-take-trace-level-into-account/153348
+- [citation] @ajaymerchia/logui | https://www.npmjs.com/package/@ajaymerchia/logui
+- [citation] 🌟 拯救你的日志系统！Android 日志打印实战指南 | https://juejin.cn/post/7506940141816348699
+- [citation] 高性能系统中的日志降噪与精细化日志设计 —— 技术流程全剖析 | https://blog.csdn.net/weixin_39863120/article/details/151993401
+- [citation] 日志系统：隐藏在业务代码中的性能刺客 | https://cloud.tencent.com.cn/developer/article/2509086
+- [citation] 深入浅出日志体系（logback最佳实践） | https://cloud.tencent.cn/developer/article/2206667
+- [citation] 审计 Linux 系统的操作行为的 5 种方案对比 | https://cloud.tencent.cn/developer/article/1771589?from=15425&frompage=seopage
+- [citation] 通过集中日志记录减少安全风险 | https://open-source.com.cn/article/19/2/reducing-security-risks-centralized-logging
+- [citation] Gauge Widget | Data Analysis 1.166.0-1.171.2 | LogScale Documentation | https://library.humio.com/data-analysis-1.171/dashboards-allwidgets-gauge.html
+- [citation] Heatmap Chart | Lowcoder Documentation | https://docs.lowcoder.cloud/lowcoder-documentation/build-applications/app-editor/visual-components/dashboard-and-reporting/charts-and-graphs/heatmap-chart
+- [citation] HeatmapChart - Question Distribution Visualization | VIS-SUSTech/RAGTrace | DeepWiki | https://deepwiki.com/VIS-SUSTech/RAGTrace/4.1-heatmapchart-question-distribution-visualization
+- [citation] Observable Web Latency | https://idl.uw.edu/mosaic-framework-example/observable-latency
+- [citation] Poor Logging Practice | OWASP Foundation | https://owasp.org/www-community/vulnerabilities/Poor_Logging_Practice
+- [citation] valorate.plot.sampling.densities: PLOT CO-OCCURRENCE DENSITIES FORMING A LOG-RANK DISTRIBUTION in valorate: Velocity and Accuracy of the LOg-RAnk TEst | https://rdrr.io/cran/valorate/man/valorate.plot.sampling.densities.html
+- [citation] Visualization in Grafana | grafana/loki-k6-handson | DeepWiki | https://deepwiki.com/grafana/loki-k6-handson/5-visualization-in-grafana
+- [citation] Visualize snapshot density using cell background color · Issue #351 · iipc/openwayback | https://app4.secure.forcepoint.com/iipc/openwayback/issues/351
+- [citation] Why WARNING Has No Place in Modern Logging | Mergify | https://mergify.com/blog/why-warning-has-no-place-in-modern-logging/#main
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: e3e3d172-3731-4b09-831b-7c0084b37fc1

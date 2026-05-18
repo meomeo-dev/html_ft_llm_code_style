@@ -1,0 +1,188 @@
+**回复ID: TestCoverageVisualScale-20260518-001**
+
+## 搜索过程摘要
+
+我按用户要求的 7 个步骤，从 6 个方向逐步搜索并打开关键资料，以下是每步的发现摘要：
+
+**步骤 1-2：主流资料与工具规则。** 搜索结果确认了三种主要的测试组织模式：**镜像树**（`test/` 目录镜像 `src/`）、**就近放置**（`_test.go` 同目录）和**专用目录**（`__tests__/`）。`semver-analyzer-core` 的 `TestConvention` 枚举将常见惯例标准化为 `DotTest`、`DotSpec`、`TestsDir`、`Suffix` 和 `MirrorTree` 五种变体[reference:0]。GitAuto 的测试发现系统进一步将这些模式按结构层级排序：就近测试（Tier 1）是"最强信号"，镜像树（Tier 3）反而排得更低[reference:1]。
+
+**步骤 3：语言间差异。** 不同语言的外观差异非常显著。Go 强制 `_test.go` 后缀并与源码同目录[reference:2]；Java 用 `src/test/java/...` 镜像 `src/main/java/...`[reference:3]；Python 用 `test_*.py` 前缀；JavaScript/TypeScript 用 `.test.ts` 或 `.spec.ts` 后缀[reference:4]。这些差异意味着如果把"镜像结构"写成最高档，Go 和 JavaScript 社区的大部分项目将永远无法达到，存在根本性的跨语言误判。
+
+**步骤 4：反例与边界。** 两种关键反例来自 Rust 的内联测试模块（`#[cfg(test)] mod tests {}`，测试代码写在源码文件底部）和 Python 的 `doctest`（测试嵌入 docstring 中）。这些场景下测试文件数量为零但覆盖率可能很高——这正是本维度"只能看文件树，不能看实际覆盖率"的边界所在。
+
+**步骤 5-7：评估与修改。** 我基于上述资料评估了当前 0-5 档文案，识别出四处关键缺陷，并提供了 6 条仅限本维度的替代文案。
+
+---
+
+## 维度定义分析
+
+**核心问题：名称是否准确表达了测试覆盖在代码库外观上的表现。**
+
+当前维度名称"测试覆盖率要求 (Test Coverage Requirement)"存在**根本性误导**——测试覆盖率（test coverage）这个术语在行业语境中首先且主要指行覆盖、分支覆盖、函数覆盖等**量化指标**。如 Datadog 的文档所强调，代码覆盖率是"识别代码库中哪些部分完全没有安全网"的度量手段[reference:5]。把这个术语用于描述"文件树和测试文件的可视外观"，从一开始就会让读者产生错误预期。
+
+本维度实际上考察的是**测试可见度（Test Visibility）**：能否通过浏览代码库一眼看到测试是否存在于文件树中、测试文件与源文件的对应关系如何。因此名称应修改为"测试可见度（Test Visibility）"或"测试外观存在性（Test Presence in Codebase Layout）"。
+
+---
+
+## 当前 0-5 档文案的逐档审查
+
+我将逐档分析当前文案，然后汇总共性问题。
+
+### 档 0
+
+> "项目视图中看不到任何测试文件或 test_ 前缀的函数，无断言痕迹"
+
+**评价：作为最低档是合格的。** 它抓住了肉眼可观察的两个关键特征：① 没有测试文件（文件树中不存在）；② 没有断言痕迹（源码中 grep 不到 `assert` / `expect` / `should`）。档 0 不涉及覆盖率百分比，完全通过代码库外观来定义。
+
+⚠ **轻微瑕疵**："test_ 前缀的函数"仅适用于 Python 等部分语言，Go 用的是 `TestXxx`，JavaScript 用 `describe()`/`it()`/`test()`。建议改为更中性的表述，如"无任何测试函数标记"。
+
+### 档 1
+
+> "仅有一个小型测试文件，内含少量占位测试函数，大多为空或仅有注释"
+
+**评价：方向正确，但存在一处混淆。** 主要矛盾在于"大多为空或仅有注释"是在描述测试**质量**（这些测试不做任何事），而非测试**外观**。一个空文件和一个有 200 行测试逻辑的文件在文件树中看起来可能完全相同。建议删除"大多为空或仅有注释"，改为仅描述文件数量和可见性。
+
+### 档 2
+
+> "测试目录覆盖约半数源码模块，文件中散布着基本测试函数"
+
+**评价：存在两处理论问题。** ① "覆盖约半数源码模块"**引入了覆盖率概念**。"覆盖"一词暗示了某种量化关系，但"半数"是基于模块计数还是文件计数并不清晰，且无法通过肉眼在文件树中判断。② "散布着基本测试函数"中的"基本"模糊不清——什么算"基本"？这又滑向了测试质量判断。
+
+### 档 3
+
+> "测试目录几乎覆盖所有模块，测试文件与源文件同等大小甚至更大"
+
+**评价：一处有效，一处偏离。** "测试目录几乎覆盖所有模块"同样有覆盖率暗示。但"测试文件与源文件同等大小甚至更大"是一个**可肉眼观察的外观特征**——文件管理器或 IDE 文件树可以显示文件大小。
+
+### 档 4
+
+> "测试文件比源文件更长，每个 if/else 分支都有对应测试函数"
+
+**评价：严重偏离外观维度。** "每个 if/else 分支都有对应测试函数"要求打开文件查看代码结构，且本质上在描述**分支覆盖（branch coverage）**——这是一个量化覆盖率指标，只能通过工具检测。这越过了本维度的边界。
+
+### 档 5
+
+> "专用 tests/ 文件夹完美 1:1 镜像 src/，每个公共函数都有对应测试类，文档引用每个分支和边界"
+
+**评价：最高档存在根本性设计缺陷。** ① "专用 tests/ 文件夹完美 1:1 镜像 src/"作为最高档，暗示镜像模式是最佳实践。但这与大量主流实践相悖：
+
+- Go 社区要求 `_test.go` 与源文件同目录，没有 `tests/` 文件夹[reference:6]；
+- Rust 社区惯用 `#[cfg(test)] mod tests` 内联测试模块，也没有独立的 `tests/` 目录[reference:7]；
+- JavaScript/TypeScript 社区的**就近放置模式（co-location）**被广泛采用，测试文件与源文件放在同一目录，比镜像模式在路径信号强度上排名更高[reference:8]；
+- 镜像模式本身也存在批评——在大项目重构时维护镜像结构"非常困难"[reference:9]。
+
+如果将镜像结构定为最高档（5），那么遵循 Go 惯例或就近放置的项目最多只能达到较低档位（如 3），而它们实际上可能拥有与镜像项目同等甚至更好的测试实践。这形成了**系统性的跨语言偏见**。
+
+② "文档引用每个分支和边界"又滑向了测试文档和覆盖率概念。
+
+③ "每个公共函数都有对应测试类"在非面向对象语言中不适用。
+
+---
+
+## 概念混淆汇总
+
+| 混淆类型 | 出问题的档位 | 具体表现 |
+|---------|-----------|---------|
+| **覆盖率混入** | 档 2、3、4 | "覆盖约半数""覆盖所有""每个分支都有"引入了真实的覆盖率概念 |
+| **测试质量混入** | 档 1、2 | "大多为空或仅有注释""基本测试函数"评判的是测试好不好，而非有没有 |
+| **镜像目录绝对化** | 档 5 | "专用 tests/ 文件夹"排斥了 Go 同目录惯例、Rust 内联模块、JS 就近放置 |
+| **文档引用混入** | 档 5 | "文档引用每个分支"不是文件树外观，属于文档维度 |
+| **语言特定性过强** | 档 0 | "test_ 前缀的函数"仅适用于 Python 等语言 |
+
+---
+
+## 修改建议：替代 6 条文案
+
+在提出替代方案之前，我必须明确本维度的严格边界：
+
+**维度核心**：仅凭浏览代码库文件树（不打开文件、不运行工具）就能判断的测试代码外观存在性。涉及以下可观察特征：
+
+- 文件树中是否有测试相关文件或目录
+- 测试文件的命名惯例（`.test.*`、`_test.*`、`test_*`、`spec.*` 等）
+- 测试文件数量与源文件数量的视觉比例
+- 测试目录结构与源码目录结构之间的空间关系（镜像、就近、集中）
+
+**维度不可包含**（属于其他维度或非外观）：
+
+- 实际覆盖率百分比（行覆盖/分支覆盖/函数覆盖）——须借助工具
+- 测试质量（空函数/有意义断言/边界覆盖）——须阅读代码内容
+- CI 配置或覆盖率门禁策略——非代码外观
+- 测试框架选型（Jest vs Mocha vs pytest）——非外观核心
+- 文档引用完整性——属于文档维度
+
+基于此，我的建议如下：
+
+### 替代文案
+
+- **0: 项目视图中看不到任何测试相关文件或目录，无法通过文件名识别出测试代码的存在**
+- **1: 项目中有零星的测试文件，但不成体系——没有固定的命名惯例或专用目录，测试文件散落且数量远少于源文件**
+- **2: 测试文件遵循基本命名惯例（如 `_test.go` / `.test.ts` / `test_*.py`），但大部分源码模块仍无对应测试文件，文件树中大片区域没有测试痕迹**
+- **3: 大多数源码模块都能找到对应的测试文件（通过命名惯例可肉眼匹配），测试文件数量与源文件数量大致相当**
+- **4: 测试文件数量明显多于源文件（每个源文件对应多个测试文件或大型测试套件），文件列表一瞥即可感知测试代码的存在远大于源码**
+- **5: 项目中存在完整、密集、一眼可辨的测试组织体系——无论采用同目录就近放置、独立 `tests/` 目录还是镜像结构，都能通过命名惯例立即在文件树中定位每个源模块的对应测试**
+
+### 修改理由说明
+
+* **完全移除覆盖率暗示**。"覆盖""半数""每个分支"等覆盖率概念从所有档位中删除，改用"能看到""能匹配""数量相当"等视觉语言。
+
+* **名称建议从"测试覆盖率要求"改为"测试可见度"**。避免读者将本维度误解为在衡量真实的测试覆盖率。
+
+* **档 5 包容所有布局策略**。明确列出"同目录就近放置、独立 tests/ 目录、镜像结构"三种主流模式，任何语言社区的惯用布局只要形成完整、密集、一眼可辨的测试组织体系均可达到最高档。如：Go 项目所有 `.go` 旁都有 `_test.go`、Java 项目 `src/test/java` 完整镜像 `src/main/java`、JS 项目每个组件旁都有 `.test.tsx` 均可达 5。
+
+* **档位之间实现真正的单调递增**：
+  - 0→1：从完全没有到有零星痕迹；
+  - 1→2：从不成体系到有命名惯例但覆盖不广；
+  - 2→3：从大部分缺测试到大部分有测试，文件数量大致 1:1；
+  - 3→4：从 1:1 到测试文件数量明显多于源文件；
+  - 4→5：从数量多到组织体系完整、一眼可辨。
+
+* **每档均确保肉眼可观察性**。所有特征（文件存在与否、命名惯例、文件数量比例、目录组织模式）均可在文件树或 IDE 文件列表中直接观察，无需运行工具或阅读代码内容。
+
+---
+
+## 最终评估
+
+当前文案作为"代码外观"量表**不合格**，存在四处关键缺陷：① 名称"测试覆盖率"误导为量化覆盖率概念；② 多档混入真实覆盖率和测试质量判断；③ 最高档排斥 Go/Rust/JS 等语言的主流布局模式；④ 档位间缺乏概念上的一致性（时而谈文件存在、时而谈覆盖率、时而谈文档引用）。建议采用上述 6 条替代文案并修改维度名称为"测试可见度 (Test Visibility)"。
+
+Citations:
+- [reference:0] Exact page | Enum TestConvention Copy item path | https://docs.rs/semver-analyzer-core/0.0.2/semver_analyzer_core/types/enum.TestConvention.html
+- [reference:1] Exact page | How We Finally Solved Test Discovery - GitAuto Blog | https://gitauto.ai/blog/how-we-finally-solved-test-discovery?utm_source=devto&utm_medium=referral
+- [reference:2] Exact page | 【Go单元测试工业级标准】：覆盖率≥85%+mutation score≥72%+golden file校验三重门 | https://datasea.cn/go0511612746.html
+- [reference:3] Exact page | Best practices for Java and Go unit tests: naming conventions and structure | https://symflower.com/en/company/blog/2022/best-practices-for-test-files/#configuring-symflowersen-test-file-output
+- [reference:4] Exact page | How We Finally Solved Test Discovery - GitAuto Blog | https://gitauto.ai/blog/how-we-finally-solved-test-discovery?utm_source=devto&utm_medium=referral
+- [reference:5] Search result set | query=内联测试 doctest 测试文件 布局 项目 外观 | candidates=11
+  candidate 1: 代码覆盖率 - GitLab - GitLab 文档中心 | https://docs.gitlab.cn/docs/jh/ci/testing/code_coverage/#view-code-coverage-results-in-the-mr
+  candidate 2: 审核极狐GitLab Runner - GitLab Runner - GitLab 文档中心 | https://gitlab.cn/docs/runner/development/reviewing-gitlab-runner/
+  candidate 3: Beyond Numbers: Turning Test Coverage into a Culture We Track, Enforce, and Improve | https://www.apollo.io/tech-blog/beyond-numbers-turning-test-coverage-into-a-engineering-culture
+  candidate 4: Files and tests | https://wallabyjs.com/docs/config/files.html#overriding-automatic-configuration
+  candidate 5: Identify untested code across every level of your codebase | Datadog | https://www.datadoghq.com/ja/blog/datadog-code-coverage/
+  ... 6 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Exact page | 【Go单元测试工业级标准】：覆盖率≥85%+mutation score≥72%+golden file校验三重门 | https://datasea.cn/go0511612746.html
+- [reference:7] Exact page | Real world tips for organising unit-tests for larger projects and files - The Rust Programming Language Forum | https://users.rust-lang.org/t/real-world-tips-for-organising-unit-tests-for-larger-projects-and-files/130749/3
+- [reference:8] Exact page | How We Finally Solved Test Discovery - GitAuto Blog | https://gitauto.ai/blog/how-we-finally-solved-test-discovery?utm_source=devto&utm_medium=referral
+- [reference:9] Search result set | query=内联测试 doctest 测试文件 布局 项目 外观 | candidates=17
+  candidate 1: 【Go单元测试工业级标准】：覆盖率≥85%+mutation score≥72%+golden file校验三重门 | https://datasea.cn/go0511612746.html
+  candidate 2: 4. Organizing Tests | https://www.bookstack.cn/read/phpunit-12.2-en/62f12f6240d6f3fd.md
+  candidate 3: 测试文件是单独放在一个文件夹中吗 | https://blog.csdn.net/m0_57236802/article/details/134115373
+  candidate 4: 使用 TypeScript 编写一个完善包含测试、文档和持续集成的库 | https://www.ucloud.cn/yun/100649.html
+  candidate 5: Best practices for Java and Go unit tests: naming conventions and structure | https://symflower.com/en/company/blog/2022/best-practices-for-test-files/#configuring-symflowersen-test-file-output
+  ... 12 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [citation] 工程化脚手架：Testing/Doc/CI 的最小可用模板 | https://blog.csdn.net/sinat_28461591/article/details/153818181
+- [citation] 软件测试方法-测试框架Doctest-11 | https://blog.csdn.net/weixin_42914706/article/details/129978533
+- [citation] 为什么你的Go测试难以维护？可能是目录结构出了问题 | https://datasea.cn/go1206342361.html
+- [citation] C++语言的单元测试与代码覆盖率 | https://cloud.tencent.cn/developer/article/1552518?from=15425
+- [citation] Configuring the Test Scope | https://docs.parasoft.com/pages/viewpage.action?pageId=27495391
+- [citation] Content - f674b4914cffa6e6023b2277dfc36eed87941fed - 3cb4764/docs/_writing-tests/general-guidelines.md | https://archive.softwareheritage.org/browse/content/sha1_git:f674b4914cffa6e6023b2277dfc36eed87941fed/?branch=refs/heads/meta_global&origin_url=https://github.com/web-platform-tests/wpt&path=docs/_writing-tests/general-guidelines.md&snapshot=b37d435721bbd450624165f334724e3585346499
+- [citation] doctest Unittest API-doctest教程-w3cschool | https://m.w3cschool.cn/doctest/doctest-unittest-api.html
+- [citation] doctestcase | https://pypi.org/project/doctestcase/0.1.0/
+- [citation] GitHub - LimeChain/demo-subgraph: Demo Subgraph (The Graph) showcasing unit testing with Matchstick! | https://app4.secure.forcepoint.com/LimeChain/demo-subgraph
+- [citation] GitHub - zonasw/doctest: The fastest feature-rich C++98/C++11 single-header testing framework for unit tests and TDD | https://app4.secure.forcepoint.com/zonasw/doctest
+- [citation] github.com/alaimo/overalls - go Package Security Analysis - Socket | https://socket.dev/go/package/github.com/alaimo/overalls?section=overview&version=v0.0.0-20191115012503-f2fbdb9ea8c2
+- [citation] python - Mastering doctest.Example.source: Pitfalls and Custom Solutions | https://runebook.dev/en/docs/python/library/doctest/doctest.Example.source
+- [citation] Source Code Classification | F-Stack/f-stack | DeepWiki | https://deepwiki.com/F-Stack/f-stack/9.2-source-code-classification
+- [citation] testing | https://pkg.go.dev/github.com/bvobart/mllint/linters/testing
+- [citation] Tests style guide | https://documentation.ubuntu.com/launchpad/developer/reference/tests/
+- [citation] Using code coverage to debug large Go application | https://dev.to/vearutop/using-code-coverage-to-debug-large-go-application-1gkf
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 433a5cc4-48ba-48ea-aa10-813764222b7f

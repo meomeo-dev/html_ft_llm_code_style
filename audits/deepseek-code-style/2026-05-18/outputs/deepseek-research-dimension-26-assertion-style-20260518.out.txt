@@ -1,0 +1,194 @@
+回复ID: assertionStyleReview-20260518-001
+
+## 1. 维度名称审计：是否准确表达“断言风格”的**代码外观**？
+
+**名称 “断言风格 (Assertion Style)” 基本可接受，但存在一定模糊性。** 从公开资料来看，“断言风格”在测试工程语境中通常指断言API的语法形态——包括方法名、参数顺序、链式调用结构等肉眼可见的代码特征[reference:0]。例如 xUnit 的 `assertEquals(expected, actual)`、Hamcrest 的 `assertThat(result, is("opened"))` 与 AssertJ 的 `assertThat(result).isEqualsTo("opened")` 被明确归为不同的“断言风格”进行对比讨论[reference:1]。同样地，**流畅断言 (Fluent Assertions)** 被描述为一种“可读性更强的断言编写方式”，其链式调用使测试代码“读起来像自然语言”[reference:2]。因此用“风格”命名维度，方向大致正确。
+
+**然而，当前维度的最末档（0.5）明显将 BDD `describe`/`it` 结构纳入了“断言风格”，这是有问题的。** BDD 的 `describe`/`it` 是一种**测试组织结构 (Test Structure)** 而非断言语法。Deno 官方文档明确指出 BDD 的基本要素包括：`describe` 块用于分组相关规格、`it` 语句表达单一行为、以及 `before`/`after` 钩子用于设置与拆卸[reference:3]。这些是测试套件的骨架结构，与 `assert`、`expect`、`should` 等断言表达属于不同维度。John Ferguson Smart 也指出 `Arrange/Act/Assert` 描述的是测试代码在做什么，而 BDD 的 `Given/When/Then` 描述的是用户行为，二者是抽象层次的不同，而非断言形态的不同[reference:4]。因此，**目标最末档 0.5 的描述需严格限定为“肉眼可见的声明式断言形态”，而非“嵌套 describe/it 块”这个测试结构特征**。
+
+> **推断**：以上关于维度名称与最末档问题的判断，基于对现有公开文档和社区讨论的交叉分析——BDD `describe`/`it` 在材料中一致地被归类为“测试组织/结构”，而非“断言风格”。但将二者区分并认为不应混入同一维度，属于本次审查的分析推断。
+
+
+## 2. 档次 0-5 逐一外观审计
+
+以下对每条现有描述进行独立的外观测评，重点关注“代码长什么样”。
+
+### 档位 0：`print()` + 手动 `if`
+
+> “屏幕满布 print() 语句配合手动 if 判断，看不到 assert 关键字”
+
+- **外观核心**：完全没有 `assert` 关键词。仅有 `print()`（或 `console.log`、`System.out.println`）和 `if` 条件判断。
+- **社区共识**：无断言的测试被明确标记为 **代码坏味道 (Code Smell)**。SonarSource 静态分析规则会检测缺少任何已知框架断言的测试用例[reference:5]。Stack Overflow 社区一致认为“如果没有断言，它就不是一个测试”[reference:6]。
+- **外观信号词**：屏幕布满 **打印语句 (Print Statements)**，手动 **if 条件判断 (if-condition)**，无任何断言框架导入。这是肉眼可辨的最低形态端。
+
+> **资料支撑**：SonarSource 规则文档、Stack Overflow 社区问答。
+
+### 档位 1：裸 `assert` 关键字
+
+> “裸 assert result == 5 散落在测试函数中，失败消息缺失或仅写 wrong”
+
+- **外观核心**：可见 `assert` 关键字（Python 原生）或 Java 的 `assert` 语句，但无框架方法。失败时没有结构化诊断信息。
+- **社区共识**：使用无消息的 `assert` 是常见的不推荐实践。Java 静态分析规则建议避免简单 `assert` 而优先使用框架断言方法。缺乏描述的失败消息会导致调试困难——当断言失败时，只有 `AssertionError` 而无法快速定位[reference:7]。
+- **外观信号词**：裸 `assert` 关键字散落，无 **失败消息 (failure message)**，无方法调用括号（如 `assert x == 5` 而非 `assertEquals(5, x)`）。
+
+> **推断**：将“裸 assert”与“无框架方法”作为视觉区分标志是合理的，但 Python 原生 `assert` 与 Java 原生 `assert` 的外观形态不同，此处描述偏 Python 倾向。
+
+### 档位 2：xUnit 框架方法风格
+
+> “断言使用框架方法如 self.assertEqual(a, b)，导入显示 unittest”
+
+- **外观核心**：可见框架方法调用（如 `assertEquals`、`assertTrue`、`assertNotNull`），导入语句中出现框架名（`unittest`、`org.junit` 等）。方法名以 `assert` 为前缀。
+- **社区共识**：xUnit 家族（JUnit、unittest、NUnit 等）提供一系列 `assert*` 方法，这是最传统的测试断言形态。JUnit 文档和 JabRef 项目测试指南将其作为基准选项讨论[reference:8]。AssertJ 社区对比文章指出传统 `Assert.AreEqual(expected, actual)` 的代码形态[reference:9]。
+- **外观信号词**：`assertEqual` / `assertEquals` 等方法调用，**导入 (import)** 语句可见 `unittest` 或 `org.junit`，参数呈现 `(expected, actual)` 或 `(actual, expected)` 的二元比较结构。
+
+> **资料支撑**：JUnit 官方文档、JabRef 项目决策文档、FluentAssertions 对比文章。
+
+### 档位 3：`expect`/`should` 英文句读风格
+
+> “代码行读起来像英文句子：expect(result).to.equal(5)，导入来自 BDD 风格断言库”
+
+- **外观核心**：以 `expect(...)` 或 `...should...` 开头，使用 `.to.` 风格的链式属性访问，阅读方向从左到右像英文句子。导入语句来自 Chai、Jest、unexpected 等库。
+- **社区共识**：`expect` 风格是 BDD 断言库的核心特征。unexpected 库围绕 `expect(subject).to.be.an('array')` 这类链式语法构建[reference:10]。Chai 的 `expect().to.equal()` 与该库的 `should` 风格一同被视作 BDD 范式下的断言表达[reference:11]。FluentAssertions 的 `.Should().Be()` 也是同一类英文句读形态[reference:12]。
+- **外观信号词**：`expect(...)` 开头，`.to.` / `.be.` / `.have.` 链式调用，**导入 (import)** 来自 BDD 风格断言库（Chai / Jest / unexpected）。代码可像 **英文句子 (English sentence)** 一样从左往右朗读。
+
+> **资料支撑**：unexpected 库文档、FluentAssertions 官方介绍。
+
+### 档位 4：长链式 `assertThat` + 匹配器风格
+
+> “长链式调用如 assertThat(result).isGreaterThan(0).isLessThan(10)，匹配器可见”
+
+- **外观核心**：以 `assertThat(subject)` 开头，后跟链式 **匹配器 (Matcher)** 方法，形如 `.isGreaterThan(...)`、`.contains(...)`、`.hasSize(...)` 等。链可以很长，多个条件在一个语句中串联。
+- **社区共识**：AssertJ 的 `assertThat(result).contains("...").doesNotContain("...")` 是流畅匹配器风格的代表[reference:13]。Hamcrest 提供 `assertThat(result, is("opened"))` 的匹配器模型，但链式程度不及 AssertJ[reference:14]。一项学术实验对 Hamcrest（匹配器风格）和 AssertJ（流畅风格）进行了生产力对比，确认二者属于不同的断言库方法[reference:15]。AssertJ 的链式调用使复杂断言可以在同一语句中流畅串联[reference:16]。
+- **外观信号词**：`assertThat(...)` 开头，链式 `.is*()` / `.has*()` / `.contains*()` **匹配器 (Matcher)** 方法，点号密集的长链。匹配器对象（如 `is()`、`not()`）在参数中可见。
+
+> **资料支撑**：AssertJ 官方示例、Hamcrest 官方文档、学术实验。
+
+### 档位 5：`describe`/`it` 嵌套 + 声明式语句
+
+> “整个测试读起来像规格文档，嵌套 describe/it 块，只有声明式语句无可见代码逻辑”
+
+- **外观核心**：文件由嵌套的 `describe(...)` 和 `it(...)` 块构成。`it` 块内部只包含极简的声明式断言语句（可能是单行 `expect` 或 `assert`），大量业务逻辑被抽象到 `beforeEach`/`beforeAll` 钩子或其他辅助函数中。Deno 官方示例展示了这种结构：`describe("Calculator", () => { ... it("should initialize with zero", () => { assertEquals(...) }) ... })`[reference:17]。
+- **跨维度问题**：此处描述混入了两个维度的内容——**测试结构**（嵌套 `describe`/`it`）和**声明式表达**（`it` 块内部极简）。**嵌套 `describe`/`it` 是测试组织结构，不是断言风格。** 但 `it` 块内部的“声明式语句无可见代码逻辑”确实与断言表达方式有关——当断言被高度抽象化、业务逻辑完全外移时，`it` 块内部的断言行在外观上确实呈现极简的声明式形态。
+- **外观信号词**：`describe()` / `it()` **嵌套 (nested)** 块，`beforeEach`/`afterEach` 钩子，`it` 块体内部代码行数极少。但与断言语法本身的关系需要重新审视。
+
+> **资料支撑**：Deno 标准库 BDD 模块文档。
+
+### 关键发现：`describe`/`it` 不是断言风格
+
+**通过补充搜索确认，`describe`/`it` 在各类权威资料中均被归类为“测试结构”或“测试组织方式”，而非“断言风格”。** Deno 官方文档将 `describe`、`it`、`beforeEach`、`afterEach` 归入“BDD 测试模块”的组织结构[reference:18]。Mocha/Jasmine 的 `describe`/`it` 是测试套件定义语法，与断言库（如 Chai 的 `expect`）是两个独立层面的概念。John Ferguson Smart 区分了 `Arrange/Act/Assert`（测试代码结构）与 `Given/When/Then`（行为描述），并指出二者是抽象层次的不同[reference:19]。
+
+因此，**现有档位 5 的描述需严格修正**：如果要在“断言风格”维度内保留，则应聚焦于 `describe`/`it` 块**内部**的断言表达形态——即高抽象级别下断言代码的视觉外观——而非 `describe`/`it` 嵌套结构本身。具体而言，应描述为：“`it` 块内部的断言精简到一行声明式语句，所有业务逻辑被外移，看不到条件分支或临时变量”——这是一个纯粹的外观判断。
+
+> **推断**：以上分类判断基于对 Deno、Mocha/Jasmine 官方文档以及 John Ferguson Smart 文章的交叉分析，但将“嵌套 describe/it”明确从断言风格维度中剥离属于本次审查的分析推断。
+
+
+## 3. 单调视觉递进性判断
+
+**当前 0-5 档在“断言代码的视觉复杂度/符号密度”上确实呈现单调递进趋势，但需要确认每相邻两档之间是否存在反向。**
+
+| 档位 | 核心视觉特征 | 符号密度 | 关键视觉信号词 |
+|------|-------------|---------|---------------|
+| 0 | `print()` + `if`，无 `assert` 关键词 | 最低 | 打印语句 (Print Statements)、手动 if |
+| 1 | 裸 `assert` 关键字，无方法调用 | 低 | 裸 assert 关键字、无失败消息 |
+| 2 | `assertEquals(...)` 框架方法调用 | 中 | assertEqual/assertEquals、导入语句可见 |
+| 3 | `expect(x).to.equal(y)` 英文句读 | 中高 | expect(...)、.to. / .be. / .have. 链式 |
+| 4 | `assertThat(x).isA().isB()` 长链匹配器 | 高 | assertThat(...)、链式匹配器、点号密集 |
+| 5 | `describe`/`it` 嵌套 + 声明式断言 | 最高（结构） | describe()/it() 嵌套、极简断言体 |
+
+从 0 到 4，断言的“符号密度”（点号数量、方法调用链长度、关键词丰富度）**单调递增**：
+
+- 0→1：从没有 `assert` 关键词到出现裸 `assert`，符号密度上升。
+- 1→2：从裸 `assert` 到框架方法调用，引入括号和参数，密度上升。
+- 2→3：从单一方法调用到链式 `.to.` 调用，密度上升。
+- 3→4：从短链到长链匹配器，点号数量显著增加，密度继续上升。
+
+**潜在问题出现在 4→5 方向**：从“点号密集型长链匹配器”到“嵌套 describe/it 结构”，视觉核心从断言语法的符号密度转向了文件结构复杂度。如果仅看 `it` 块内部的断言表达式，其复杂度和符号密度可能反而**下降**（因为声明式极简）。**这意味着 4→5 在断言语法维度上可能不是单调递增，而是出现了方向拐弯。**
+
+> **推断**：以上关于视觉单调性的判断基于对代码外观的逻辑分析（符号密度、链式调用深度等可观察特征），而非来自公开资料的实证数据。现有资料没有提供断言风格的视觉排名量表可供直接对照。
+
+
+## 4. 修订建议：6 条纯视觉替代文案
+
+以下 6 条修订文案严格聚焦于“肉眼可见的代码外观”（符号密度、排列方式、关键词形态），**排除**：测试结构（嵌套层级、`describe`/`it` 组织）、失败消息质量、框架优劣、覆盖率及运行时可靠性。
+
+1. **代码中完全看不到 `assert` 关键词，只有 `print()` 或日志输出语句配合 `if` 手动判断** —— 视觉核心：打印语句替代断言，无任何断言关键字。
+2. **裸 `assert` 关键字直接出现在测试函数中（如 `assert x == 5`），无可识别的断言框架方法调用，也无导入断言库的语句** —— 视觉核心：纯语言内置 `assert`，无方法括号。
+3. **`assertEquals(expected, actual)` 或 `assertTrue(condition)` 等框架方法调用可见，导入语句出现 `unittest`、`org.junit` 等 xUnit 框架名，参数以逗号分隔** —— 视觉核心：框架方法调用 + 导入可见。
+4. **以 `expect(actual).to.equal(expected)` 或 `actual.should.equal(expected)` 形式书写，点号链短（通常 2-3 级），阅读方向从左到右像英文短句，导入来自 Chai/Jest 等库** —— 视觉核心：英文短句式的链式断言，点号链较短。
+5. **以 `assertThat(actual)` 开头，后跟长链式 `.is*()` / `.has*()` / `.contains*()` 方法（点号 ≥4 级），匹配器对象在参数或链中可见** —— 视觉核心：长链式匹配器调用，点号数量多。
+6. **断言精简为单行声明式语句（形如 `expect(value).to.equal(5)`），所有准备代码与业务逻辑被移至外部，测试体内看不到任何条件分支或临时变量声明** —— 视觉核心：极简断言体，无可见逻辑，无 `if`/变量声明。
+
+> **推断**：以上 6 条替代文案的文本撰写完全基于本次审查的分析推断，未被公开资料直接提供。其中各档位对应的断言形态（`print`+`if` → 裸 `assert` → xUnit 方法 → `expect`/`should` → 长链匹配器 → 极简声明式）在社区中被广泛讨论，但“符号密度单调递增”的档次排列逻辑是本审查的推断。
+
+
+## 5. 资料支撑与推断声明汇总
+
+| 审查结论 | 基于公开资料 | 基于本次审查推断 |
+|---------|-------------|-----------------|
+| “断言风格”指断言API的语法形态 | SonarSource、JUnit文档、FluentAssertions介绍[reference:20][reference:21][reference:22] | — |
+| `print()` + `if` 是代码坏味道 | SonarSource规则[reference:23]、Stack Overflow讨论[reference:24] | — |
+| 裸 `assert` 缺乏诊断信息是不推荐实践 | 单元测试最佳实践文章[reference:25] | — |
+| xUnit `assertEquals` 是传统断言形态 | JUnit文档、JabRef决策文档[reference:26] | — |
+| `expect()`/`should` 是BDD断言库特征 | unexpected库文档[reference:27]、FluentAssertions对比[reference:28] | — |
+| `assertThat` + 链式匹配器是流畅断言风格 | AssertJ/Hamcrest对比、学术实验[reference:29][reference:30] | — |
+| `describe`/`it` 属于测试结构而非断言风格 | Deno BDD文档[reference:31][reference:32]、John Ferguson Smart[reference:33] | 但明确将其从断言风格维度剥离属于推断 |
+| 0-4档在符号密度上单调递增 | — | 完全基于视觉符号密度的逻辑推断 |
+| 4→5在断言语法上可能不是单调递增 | — | 完全基于视觉符号密度的逻辑推断 |
+| 6条替代文案的具体文本 | — | 完全基于审查分析推断，未被公开资料直接提供 |
+
+Citations:
+- [reference:0] Exact page | Java几种常用的断言风格你怎么选-编程语言-互联网-天达云 | https://www.tdyun.com/study/prolanguage/31996
+- [reference:1] Exact page | Java几种常用的断言风格你怎么选-编程语言-互联网-天达云 | https://www.tdyun.com/study/prolanguage/31996
+- [reference:2] Exact page | FluentAssertions竞争优势：与其他测试工具的差异化特点 | https://blog.csdn.net/gitblog_00100/article/details/151098880
+- [reference:3] Exact page | Behavior-Driven Development (BDD) | https://docs.deno.com/examples/bdd_tutorial/#beforeall%2Fafterall
+- [reference:4] Exact page | The Three “A”s, building blocks for a great test suite - John Ferguson Smart | https://johnfergusonsmart.com/three-building-blocks-great-test-suite/
+- [reference:5] Search result set | query=xUnit assertEqual expect assertThat BDD describe it code appearance | candidates=47
+  candidate 1: 📌 Code Smell 203 - Irrelevant Test Information | https://tsecurity.de/de/1836307/IT+Programmierung/Code+Smell+203+-+Irrelevant+Test+Information/
+  candidate 2: 🔒 Enhancing the Developer Experience of Testing Part 2 | https://tsecurity.de/de/2485663/IT+Programmierung/Enhancing+the+Developer+Experience+of+Testing+Part+2/de/3/IT+Nachrichten/de/19/IT+Server/
+  candidate 3: 单元测试普及（二）：更高效地检查bug | https://www.spasvo.com/news/html/2012929145216_2.html
+  candidate 4: 颠覆传统断言方式：FluentAssertions让C#单元测试代码焕然一新！ | https://mojinxuan.blog.csdn.net/article/details/149693159
+  candidate 5: 怎么利用单元测试断言 Assertions 验证业务方法的输出逻辑 | https://www.php.cn/faq/2308944.html
+  ... 42 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Exact page | Unit Testing without Assertions | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/137399/unit-testing-without-assertions
+- [reference:7] Exact page | 怎么利用单元测试断言 Assertions 验证业务方法的输出逻辑 | https://www.php.cn/faq/2308944.html
+- [reference:8] Exact page | Use Plain JUnit5 for advanced test assertions | https://devdocs.jabref.org/decisions/0009-use-plain-junit5-for-testing.html
+- [reference:9] Exact page | FluentAssertions竞争优势：与其他测试工具的差异化特点 | https://blog.csdn.net/gitblog_00100/article/details/151098880
+- [reference:10] Exact page | unexpected：一款支持BDD风格且高度可扩展的JavaScript断言库 - CSDN文库 | https://wenku.csdn.net/doc/1yo65vcp3a
+- [reference:11] Exact page | unexpected：一款支持BDD风格且高度可扩展的JavaScript断言库 - CSDN文库 | https://wenku.csdn.net/doc/1yo65vcp3a
+- [reference:12] Exact page | FluentAssertions竞争优势：与其他测试工具的差异化特点 | https://blog.csdn.net/gitblog_00100/article/details/151098880
+- [reference:13] Exact page | Use Plain JUnit5 for advanced test assertions | https://devdocs.jabref.org/decisions/0009-use-plain-junit5-for-testing.html
+- [reference:14] Exact page | Java几种常用的断言风格你怎么选-编程语言-互联网-天达云 | https://www.tdyun.com/study/prolanguage/31996
+- [reference:15] Exact page | Two experiments for evaluating the impact of Hamcrest and AssertJ on assertion development | https://www.springerprofessional.de/two-experiments-for-evaluating-the-impact-of-hamcrest-and-assert/18048070
+- [reference:16] Exact page | Use Plain JUnit5 for advanced test assertions | https://devdocs.jabref.org/decisions/0009-use-plain-junit5-for-testing.html
+- [reference:17] Exact page | Behavior-Driven Development (BDD) | https://docs.deno.com/examples/bdd_tutorial/#beforeall%2Fafterall
+- [reference:18] Exact page | Behavior-Driven Development (BDD) | https://docs.deno.com/examples/bdd_tutorial/#beforeall%2Fafterall
+- [reference:19] Exact page | The Three “A”s, building blocks for a great test suite - John Ferguson Smart | https://johnfergusonsmart.com/three-building-blocks-great-test-suite/
+- [reference:20] Search result set | query=xUnit assertEqual expect assertThat BDD describe it code appearance | candidates=47
+  candidate 1: 📌 Code Smell 203 - Irrelevant Test Information | https://tsecurity.de/de/1836307/IT+Programmierung/Code+Smell+203+-+Irrelevant+Test+Information/
+  candidate 2: 🔒 Enhancing the Developer Experience of Testing Part 2 | https://tsecurity.de/de/2485663/IT+Programmierung/Enhancing+the+Developer+Experience+of+Testing+Part+2/de/3/IT+Nachrichten/de/19/IT+Server/
+  candidate 3: 单元测试普及（二）：更高效地检查bug | https://www.spasvo.com/news/html/2012929145216_2.html
+  candidate 4: 颠覆传统断言方式：FluentAssertions让C#单元测试代码焕然一新！ | https://mojinxuan.blog.csdn.net/article/details/149693159
+  candidate 5: 怎么利用单元测试断言 Assertions 验证业务方法的输出逻辑 | https://www.php.cn/faq/2308944.html
+  ... 42 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:21] Exact page | Use Plain JUnit5 for advanced test assertions | https://devdocs.jabref.org/decisions/0009-use-plain-junit5-for-testing.html
+- [reference:22] Exact page | FluentAssertions竞争优势：与其他测试工具的差异化特点 | https://blog.csdn.net/gitblog_00100/article/details/151098880
+- [reference:23] Search result set | query=xUnit assertEqual expect assertThat BDD describe it code appearance | candidates=47
+  candidate 1: 📌 Code Smell 203 - Irrelevant Test Information | https://tsecurity.de/de/1836307/IT+Programmierung/Code+Smell+203+-+Irrelevant+Test+Information/
+  candidate 2: 🔒 Enhancing the Developer Experience of Testing Part 2 | https://tsecurity.de/de/2485663/IT+Programmierung/Enhancing+the+Developer+Experience+of+Testing+Part+2/de/3/IT+Nachrichten/de/19/IT+Server/
+  candidate 3: 单元测试普及（二）：更高效地检查bug | https://www.spasvo.com/news/html/2012929145216_2.html
+  candidate 4: 颠覆传统断言方式：FluentAssertions让C#单元测试代码焕然一新！ | https://mojinxuan.blog.csdn.net/article/details/149693159
+  candidate 5: 怎么利用单元测试断言 Assertions 验证业务方法的输出逻辑 | https://www.php.cn/faq/2308944.html
+  ... 42 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:24] Exact page | Unit Testing without Assertions | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/137399/unit-testing-without-assertions
+- [reference:25] Exact page | 怎么利用单元测试断言 Assertions 验证业务方法的输出逻辑 | https://www.php.cn/faq/2308944.html
+- [reference:26] Exact page | Use Plain JUnit5 for advanced test assertions | https://devdocs.jabref.org/decisions/0009-use-plain-junit5-for-testing.html
+- [reference:27] Exact page | unexpected：一款支持BDD风格且高度可扩展的JavaScript断言库 - CSDN文库 | https://wenku.csdn.net/doc/1yo65vcp3a
+- [reference:28] Exact page | FluentAssertions竞争优势：与其他测试工具的差异化特点 | https://blog.csdn.net/gitblog_00100/article/details/151098880
+- [reference:29] Exact page | Use Plain JUnit5 for advanced test assertions | https://devdocs.jabref.org/decisions/0009-use-plain-junit5-for-testing.html
+- [reference:30] Exact page | Two experiments for evaluating the impact of Hamcrest and AssertJ on assertion development | https://www.springerprofessional.de/two-experiments-for-evaluating-the-impact-of-hamcrest-and-assert/18048070
+- [reference:31] Exact page | Behavior-Driven Development (BDD) | https://docs.deno.com/examples/bdd_tutorial/#beforeall%2Fafterall
+- [reference:32] Exact page | Behavior-Driven Development (BDD) | https://docs.deno.com/examples/bdd_tutorial/#beforeall%2Fafterall
+- [reference:33] Exact page | The Three “A”s, building blocks for a great test suite - John Ferguson Smart | https://johnfergusonsmart.com/three-building-blocks-great-test-suite/
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 02b8f55c-0a94-42ad-bbdd-70d3d4ff8afd

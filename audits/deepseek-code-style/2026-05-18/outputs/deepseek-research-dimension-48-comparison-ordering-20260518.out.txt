@@ -1,0 +1,291 @@
+**回复ID: ComparisonOperandOrdering-20260518-001**
+
+---
+
+## 一、维度名称审视：`比较操作数顺序 (Comparison Operand Ordering)`
+
+**关键词：操作数顺序 (operand order)、常量/变量位置 (constant/variable position)、比较表达式外观 (comparison expression appearance)**
+
+**维度名称准确表达了“比较操作数顺序”的代码外观。** 该名称聚焦于一个可直接用肉眼观察的语法特征：在相等性/比较表达式（如 `==`、`!=`、`===`、`!==`）中，字面量（常量、`null`、数字、字符串）与变量分别位于运算符的哪一侧。这在公开资料中有明确对应：
+
+- ESLint 的 `yoda` 规则将其定义为“比较变量与字面值的条件中操作数的顺序”——字面量在前则为 Yoda 条件，变量在前则非 Yoda[reference:0]。
+- RuboCop 的 `Style::YodaCondition` 同样描述为“比较表达式中顺序被颠倒”的情况[reference:1]。
+- 学术界和工业界也直接使用 “comparison operand order” 来讨论这一现象[reference:2]。
+
+名称本身没有隐含可读性好坏、安全性优劣或工具是否强制——它只描述“谁在左边、谁在右边”这一纯粹的外观事实，与审查目标高度吻合。因此，**维度名称无需修改**。
+
+---
+
+## 二、0–5 档单调性分析
+
+**关键词：视觉等级 (visual levels)、单调解构 (monotonic deconstruction)、方向一致性 (direction consistency)**
+
+现有 6 条描述文案如下（标注为 L0–L5）：
+
+> L0: 比较表达式左右位置随意，变量和常量可能出现在==任意一侧
+> L1: 绝大多数比较中，常量出现在运算符右侧，偶尔有一两处例外但不显眼
+> L2: 所有比较中，常量始终在右侧，变量在左侧，看上去自然易读
+> L3: 常量被放在左侧，变量在右侧，比如if(null==x)这样的倒装写法贯穿全文
+> L4: 涉及相等性判断时，常量统统在左，形成非常刻意的Yoda风格视觉印记
+> L5: 整个文件中比较的方向完全一致，并且工具强制，任何不一致都会导致视觉标记
+
+### 2.1 结构性问题：存在两条“分叉路径”，而非单条递进线
+
+**（一）L0→L1→L2 是一条递增路径：**
+
+- L0：无规律，两侧随意 → 外观上最低的一致性。
+- L1：大部分常量在右，偶有例外 → 中间状态，有一定倾向但未完全一致。
+- L2：常量始终在右，变量在左 → 达到该方向上的完全一致。
+
+这三级在“常量在右”方向上构成了清晰的单调递增：从无规律到部分规律再到完全规律。外观上可逐级观察。
+
+**（二）L3→L4 则是另一条方向不同的路径：**
+
+- L3：常量在左，变量在右（即 Yoda 风格），“倒装写法贯穿全文”——这与 L2 结构平行，都属于“全文使用某一固定方向”，只是方向相反。
+- L4：“常量统统在左，形成非常刻意的 Yoda 风格视觉印记”——与 L3 的区别仅在于“刻意程度”或“视觉印记”的心理感知，而非可观察的外观差异。
+
+这里存在两个问题：
+
+1. **Yoda 和非 Yoda 是风格替代（alternative styles），而非递进等级（monotonic levels）。** 从代码外观角度，L2（变量左，常量右，全文件一致）和 L3（常量左，变量右，全文件一致）都达到了“全文方向一致”这一状态，只是方向不同。无法说 L3 在同一个度量上比 L2“更高”或“更低”——它们更像是同一等级的两个镜像。这正是用户所担心的“变量左/常量右与 Yoda 常量左是否是风格替代而非递进等级”的核心——**是的，它们是风格替代关系**。
+
+2. **L3 和 L4 的区分缺乏可观察依据。** “倒装写法贯穿全文”（L3）与“非常刻意的 Yoda 风格视觉印记”（L4）在外观上的差异模糊。L3 已经是全文使用常量在左，L4 在此基础上添加了“涉及相等性判断时”的限定和“刻意”的心理描述，但这些无法通过纯粹的代码外观来区分——它们在文件中的表现完全相同（都是所有比较中常量在左）。**L4 实质上是 L3 的语义包装，而非独立的可观察等级。**
+
+### 2.2 L5 的问题：工具强制与视觉标记越界
+
+**L5 存在严重越界问题：**
+
+- **“工具强制”（tool enforcement）不属于“代码长什么样”的范畴。** 量表的目的是评估代码文件的视觉外观，而不是评估该文件是否通过了某个 lint 工具的检查。工具配置（如 ESLint 的 `yoda` 规则设为 `"always"` 或 `"never"`）是对代码库的约束策略，它不改变单个文件本身的视觉特征——一个文件如果所有比较都是常量在右，无论其是否由工具强制，外观是相同的。
+- **“视觉标记”（visual marker，指 IDE 中的波浪线/高亮）同样是工具行为，而非代码本身的外观。** 代码文件的内容不包含这些标记；它们是由外部工具叠加的。将工具行为纳入量表会导致维度混杂——同一个文件在不同 IDE 或不同 lint 配置下会得到不同评分，这破坏了量表的信度。
+
+- ESLint `yoda` 规则确实提供 `"always"` 和 `"never"` 选项来强制一致风格，并提供 `exceptRange` 作为例外配置[reference:3]。但这些是工具策略层面，不应出现在“代码外观”维度的量表中。
+
+### 2.3 L2 中的“看上去自然易读”跨维度
+
+L2 的“看上去自然易读”引入了**可读性质量判断**，这违反了审查目标中“不判断可读性质量”的约束。量表应只描述外观，不评价该外观是否“自然”或“易读”。公开资料中大量讨论将 Yoda 条件描述为“less readable”（可读性较差）[reference:4]或“awkward to read”（读起来别扭）[reference:5]——这些属于可读性维度的内容，不应混入“比较操作数顺序”的外观维度。
+
+### 2.4 小结：现有量表的缺陷
+
+| 等级 | 问题 |
+|------|------|
+| L0 | 可保留（无规律状态，起点正确） |
+| L1 | 可保留（中间状态，方向是常量在右） |
+| L2 | “看上去自然易读”跨维度，需删除可读性评价 |
+| L3 | 与 L2 是风格替代而非递进，L3 不应排在 L2 之上 |
+| L4 | 与 L3 区分度不足，心理描述不可观察，实际是同一外观 |
+| L5 | 工具强制/视觉标记完全越界，不属于代码外观 |
+
+**核心结论：当前量表不是一条单调线，而是将两条方向相反的路径（常量在右 vs 常量在左）拼接成了一条伪递进线，并在末尾附加了工具行为。**
+
+---
+
+## 三、修改方案
+
+**关键词：重新校准 (recalibration)、纯视觉外观 (pure visual appearance)、无偏好 (no preference)**
+
+### 3.1 设计原则
+
+以下原则全部基于公开资料及从公开资料中可合理派生的推论：
+
+1. **只描述可肉眼观察的代码文本特征**：常量、变量、字面量在 `==`/`!=`/`===`/`!==` 左侧还是右侧。
+2. **不涉及工具**：不描述 lint 规则、IDE 标记、编译错误等外部行为。
+3. **不评价可读性**：不出现“自然”“易读”“别扭”“刻意”等主观判断词。
+4. **不区分 Yoda 与非 Yoda 的优劣**：两者在同一等级上镜像对称，方向不同但一致性程度相同。
+5. **单调递进基于方向一致性程度**，而非具体方向。量表从“无一致方向”到“全文方向完全一致”，中间经过若干可区分的渐变状态。方向本身（常量在左还是右）作为描述中的标注，不作为等级高低。
+
+### 3.2 替代文案（6 条，0–5 档）
+
+> **Level 0** — 比较表达式中变量与常量的左右位置无规律，常量有时在左、有时在右，看不出统一的方向。
+>
+> **Level 1** — 大多数比较表达式将常量放在运算符右侧（如 `x == 0`），但偶有常量出现在左侧的情况，整体偏向一个方向但未完全统一。
+>
+> **Level 2** — 所有比较表达式将常量放在运算符右侧、变量放在左侧（如 `x == null`、`count === 0`），全文方向完全一致。
+>
+> **Level 3** — 所有比较表达式将常量放在运算符左侧、变量放在右侧（如 `null == x`、`0 === count`），全文方向完全一致，与 Level 2 方向相反。
+>
+> **Level 4** — 比较表达式在两种方向之间交替：例如对 `null` 的判断固定使用常量在左（`null == x`），对其他字面量的比较固定使用常量在右（`x == 0`），方向按被比较值的类别有规律地切换。
+>
+> **Level 5** — 比较表达式中变量与常量混合出现且没有可辨识的分布规律——大量比较在一个方向上，但零散分布着反方向的比较，方向一致性低于 Level 1 或 Level 4。
+
+### 3.3 等级递增逻辑说明
+
+等级按照**方向一致性（directional consistency）**由低到高排列：
+
+- **L0**：完全无规律（一致性最低）。
+- **L5**：以某方向为主但有零散反例——比 L0 多了一个“主导方向”，但反例的存在使其一致性低于 L1（因为 L1 是“绝大多数”一致，仅偶有例外；而 L5 描述的是“零散分布”的反例，给人观感上更随机，一致性更低。此处将 L5 置于 L1 之下，是基于“可辨识的主导方向 + 随机反例”在外观上比“绝大多数一致”更不整齐的判断。）
+- **L1**：绝大多数一致，偶有反例（一致性提升）。
+- **L4**：按类别规律性切换方向——虽然使用两种方向，但切换有规律（例如按被比较值的类型），一致性高于 L1 和 L0，但低于全文统一方向。
+- **L2 和 L3**：全文方向完全一致，一致性最高。两者镜像对称，属于同一等级的不同方向——在本维度中按常量方向编码为不同等级是为了保持量表的线性结构；严格来说它们在第 2 和第 3 的位置可以互换，排列顺序的选择基于“常量在右更常见”的经验观察（如 ESLint 默认 `"never"` 禁止 Yoda 条件[reference:6]、Linux 内核 checkpatch 建议常量在右[reference:7]），但量表本身不对方向赋优劣。
+
+### 3.4 关于 L2/L3 顺序的补充说明
+
+**L2（常量在右）排在 L3（常量在左）之前，仅基于经验频率，而非价值判断。** 在主流代码风格指南中，“变量在左、常量在右”被更广泛地视为默认风格：
+
+- ESLint `yoda` 规则默认值为 `"never"`，即默认禁止 Yoda 条件（常量在左）[reference:8]。
+- Linux 内核的 `checkpatch.pl` 检查常量在左侧的比较并建议改为常量在右[reference:9]。
+- QEMU 的 CODING_STYLE 明确规定“比较变量与常量时，常量在右”[reference:10]。
+- Python 社区讨论中也确认“变量==常量”是惯例[reference:11]。
+
+因此，将常量在右（非 Yoda）置于常量在左（Yoda）之前，反映的是“常见程度”的梯度，而非“哪个更好”的判断。如果某代码库强制使用 Yoda 风格（如 WordPress PHP Coding Standards 要求“始终将常量、字面量或函数调用放在左侧”[reference:12]），该代码库的文件将被评为 L3——这与被评为 L2 的文件在方向一致性上同级，仅方向不同。
+
+---
+
+## 四、依据来源说明
+
+### 基于公开资料的判断
+
+- Yoda 条件的定义：常量在左、变量在右——ESLint 文档、RuboCop 文档、WordPress Coding Standards 等多个来源一致[reference:13][reference:14][reference:15]。
+- ESLint `yoda` 规则的 `"always"` / `"never"` / `"exceptRange"` 选项——直接来自 ESLint 官方文档[reference:16]。
+- Linux 内核 `checkpatch.pl` 对常量在左的检查——来自 LKML 和多个 Git 仓库的提交记录[reference:17]。
+- “变量在左、常量在右”作为主流惯例——来自 QEMU CODING_STYLE 和 Python 社区讨论[reference:18][reference:19]。
+
+### 基于推断的判断
+
+- 现有量表 L3 和 L4 之间缺乏可观察的外观差异——这是对文案文本的逻辑分析，属于推断。
+- L5 中“工具强制”和“视觉标记”属于外部工具行为，不属于代码本身的外观——这是基于“代码外观”定义的概念推断。
+- L2 中“看上去自然易读”属于可读性维度——这是对照审查目标约束的语义分析推断。
+- 替代文案的 0–5 档分级和递增逻辑——基于“方向一致性”这一可观察属性的单调构造，属于推断，但该构造直接来源于公开资料中“比较操作数顺序”这一概念的定义边界。
+
+Citations:
+- [reference:0] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:14] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:15] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:17] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [−][src]Enum boa::syntax::ast::op::CompOp | https://docs.rs/Boa/0.11.0/i686-pc-windows-msvc/boa/syntax/ast/op/enum.CompOp.html
+  candidate 2: 1.2.226. Constant Comparison | https://exakat.readthedocs.io/en/latest/Reference/Rules/Structures/ConstantComparisonConsistance.html
+  candidate 3: 提交 · c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0 · linux-arm / linux-iv · GitLab | https://gitlab.arm.com/linux-arm/linux-iv/-/commits/c5595fa2f1ce3c1a74dbd2ddc949257e80d81dc0
+  candidate 4: 为什么要写成null==obj | https://wenku.csdn.net/answer/b736ef4d863944a6be177b6786b37beb
+  candidate 5: 问为什么if条件中的第一个常量是常数EN | https://cloud.tencent.com/developer/ask/sof/105159922
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:18] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:19] Search result set | query=comparison direction consistency constants left right code review | candidates=27
+  candidate 1: [v5,1/8] CODING_STYLE: Section about conditional statement | http://patchwork.ozlabs.org/project/qemu-devel/patch/1407762058-11512-2-git-send-email-arei.gonglei@huawei.com/
+  candidate 2: [wp-trac] [WordPress Trac] #50276: PHP Coding Standards - Yoda Conditionals - Absolute Phrasing | https://lists.wordpress.org/pipermail/wp-trac/2020-May/419045.html
+  candidate 3: 【译】Learn D3 入门文档：Scales | https://juejin.cn/post/7003134276791173133
+  candidate 4: 数据科学之编程技术：使用R进行数据清理、分析与可视化 | https://www.oreilly.com/library/view/shu-ju-ke-xue-zhi-bian-cheng-ji-zhu-shi-yong-rjin-xing-shu-ju-qing-li-fen-xi-yu-ke-shi-hua/9787111640899/Text/chapter167.xhtml
+  candidate 5: 为什么规范要求写null==obj而不是obj==null | https://wenku.csdn.net/answer/67505dc9499e4fa580c957e82353b4be
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: d3b9fd89-dbbf-442f-a604-f988226a0e52

@@ -1,0 +1,285 @@
+**回复ID: FunctionVisualScale-20260518-001**
+
+**摘要 (Summary)**：主流风格指南、静态分析工具与认知负荷研究共同指向一个核心原则——函数应能在一屏内被“视觉完整接收”。当前 0-5 档量表以“滚动距离 / 视野内完整性”为锚点，方向基本一致（高分 → 更短、更易一目了然），但低档位（0-1）的视觉区分度偏弱、语言不够直观具象，且需防范无意间混入“单一职责”等与外观无关的概念。整体可作为“代码外观”量表，但建议进行局部修饰性修改以提升视觉刻度的单调性与可观察性。
+
+---
+
+## 1. 文献回顾：函数长度与视觉外观
+
+### 1.1 代码风格指南中的“一屏原则”
+
+**风格指南普遍将“一屏内可见”视为函数长度的直观上限。** 《代码整洁之道》将“短小”列为函数的第一规则，并明确指出“最好不要让你的函数长度超过一屏，因为超过的部分需要来回滚动滚轮，读起来不够方便”[reference:0]。早期 UNIX 传统以 80×24 终端为基准，要求函数适应“一到两个屏幕”[reference:1]。PennWest Edinboro 的编程风格指南进一步强调“函数应在单个屏幕上可见，程序员应能同时阅读函数的全部或几乎全部内容”[reference:2]。中文社区普遍采纳类似建议，将编辑器一屏通常可显示的 30-40 行作为函数体的合理上限，要求“一屏之地，一览无余”[reference:3][reference:4]。
+
+**关键概念**：**函数可见性 (function visibility)**、**一屏原则 (one-screen principle)**、**视野完整性 (view integrity)**。这些概念均直接描述代码在屏幕上的视觉呈现，不涉及逻辑复杂度或职责划分。
+
+### 1.2 静态分析工具的定量阈值
+
+**主流 linter 和静态分析工具为函数长度提供了明确的数值边界，这些边界大多源自“一屏可容纳”的视觉体验。** ESLint 的 `max-lines-per-function` 规则默认最大值为 50 行，目标明确是“提高可维护性并降低复杂度”[reference:5]。SonarQube 内置规则“Functions should not have too many lines of code”（规则 S138）默认阈值为 150 行，但团队可将其调整到更贴近屏幕尺寸的值[reference:6]。RuboCop 的 `Metrics/MethodLength` 规则允许配置最大行数，部分项目设置为 12 行[reference:7]。Go 语言 linter `funlen` 默认限制为 60 行、40 条语句[reference:8]。CodeScene 对 C# 和 Java 分别建议 70 行为上限[reference:9][reference:10]。jscheckstyle 和 vue-mess-detector 则设置更激进的阈值：30 行和 20 行[reference:11][reference:12]。
+
+**关键概念**：**最大行数限制 (max-lines-per-function)**、**静态分析阈值 (static analysis threshold)**。这些规则反映的是“超过多少行就不该放在一个函数里”的共识，与屏幕容纳能力直接挂钩。
+
+### 1.3 认知负荷与滚动成本
+
+**代码审查和可维护性文献从认知负荷角度解释了“超屏函数”的危害。** 当函数超出单屏时，读者必须“将函数逻辑的部分内容保留在记忆中才能理解，这构成了额外的认知负荷，或者需要反复上下滚动函数体”[reference:13]。Kiuwan 指出方法超过 50 行时，“开发者会因来回滚动而丢失上下文”[reference:14]。Microsoft Learn 的培训材料明确指出“大型函数通常需要滚动来查看代码”[reference:15]。谷歌工程师的研究也表明，当代码审查的上下文超过几百行时，审查者“工作记忆无法同时容纳”，审查质量显著下降[reference:16]。Salesforce 工程团队报告了类似发现：随着 PR 规模增大，审查者“花在浏览文件上的时间比花在推理行为上的时间更多”[reference:17]。
+
+**关键概念**：**认知负荷 (cognitive load)**、**工作记忆 (working memory)**、**滚动成本 (scrolling cost)**。这些概念解释了为什么“视觉上可一次性接收”与可理解性之间存在因果关系，但不属于代码外观本身。
+
+### 1.4 长函数的合理例外
+
+**并非所有长函数都是错误的——外观量表应承认“长但视觉仍可接受”的边界情形。** 《软件设计的哲学》一书明确指出“长度本身很少是拆分方法的充分理由”，“如果方法具有简单的签名并且易于阅读，则包含数百行代码的方法也可以接受”[reference:18][reference:19]。典型例子包括：一个顺序执行五个 20 行代码块的方法，如果块之间相对独立，一次读一个块即可理解[reference:20]；如果块之间存在复杂交互，保持在一起反而更有利于读者同时查看所有代码[reference:21]。代码风格指南中也提到“如果函数在概念上是简单的，只是长度很长，这倒没关系”[reference:22]。Stack Overflow 上的讨论补充道：“如今显示器足够大，一个函数若接近屏幕高度就已经太长了……但如果你可以立即确定函数的用途并用一句话概括，长度可能不是问题”。
+
+**关键概念**：**概念简单性 (conceptual simplicity)**、**深度方法 (deep method)**、**顺序代码块 (sequential code blocks)**。这些例外提醒我们：外观量表只衡量“看起来有多长”，不应将“看起来长”直接等同于“不好”。
+
+---
+
+## 2. 对“代码长什么样”的启发
+
+从以上文献可以提炼出以下仅涉及**代码视觉外观**的原则：
+
+* **视觉高度为王**：函数长度的视觉体验由屏幕垂直方向上的空间占用来定义，核心指标是“是否需要滚动”以及“需要滚动多少”[reference:24][reference:25]。
+* **视野完整性**：理想状态下，读者应能“同时看到函数的全部或几乎全部内容”[reference:26]。视觉量表的最高档应对应“一览无余”。
+* **终端窗口作为天然参照系**：24 行（传统终端）、40-50 行（现代编辑器一屏）是反复出现的视觉参照点[reference:27][reference:28]。
+* **滚动行为与滑块大小是直观信号**：CodeScene 和 Microsoft Learn 用“需要滚动”来描述大函数的视觉特征[reference:29][reference:30]。滚动条滑块极小意味着函数极长，这是纯粹的视觉描述。
+* **页面布局中的留白与紧凑感**：短函数在视觉上表现为“卡片式紧凑”，且屏幕上可同时容纳多个函数，这也是视觉量表的自然延伸。
+
+**在本量表中，应避免混入的概念**：单一职责、圈复杂度、测试覆盖率、重构技巧、抽象层级——这些虽然与函数长度相关，但描述的是“函数的内涵”，而非“函数在屏幕上的外观”。
+
+---
+
+## 3. 当前 0-5 档量表评估
+
+### 3.1 方向一致性
+
+量表分数递增 → 函数越来越短、越来越容易在视野内完整接收。方向正确，未出现混淆。
+
+### 3.2 单调性与视觉可观察性
+
+* **第 0 档**：“占满整个屏幕，甚至需要多次翻页才能看到尾部，滚动条滑块极小”——视觉信息明确（滑块极小、多次翻页），**可观察**。
+* **第 1 档**：“通常超过一屏，看完需要向下滚动半屏到一屏，后半部分逻辑需靠记忆拼合”——前半段是视觉描述（滚动半屏到一屏），但“后半部分逻辑需靠记忆拼合”转向认知层面，**部分外观、部分认知**，边界模糊。
+* **第 2 档**：“大致填满一屏，偶有稍许超出，轻微滚动即可看完，整体轮廓在一个视野内勉强完整”——**纯粹视觉**，可观察。
+* **第 3 档**：“通常占据屏幕的一半左右，无需滚动即可一览无余，上下留白充足”——**纯粹视觉**，可观察。
+* **第 4 档**：“约等于一个中等大小的终端窗口，一眼从上到下尽收眼底，像卡片一样紧凑”——**纯粹视觉**，可观察。
+* **第 5 档**：“每个函数极短，像一组简短的笔记，几乎不需要视线垂直移动，屏幕可同时容纳多个函数”——**纯粹视觉**，可观察。
+
+**判断**：量表整体上单调（0→5 函数越来越短），除第 1 档混入认知描述外，其余档位均可被肉眼观察。
+
+### 3.3 档位名称分析
+
+**名称“函数/方法长度限制 (Function/Method Length)”** 准确表达了函数在屏幕中占据的视觉高度这一维度。但“长度限制”带有规则/约束意味，不如“视觉长度”或“屏幕占位”更具外观描述性。当前名称可保留，但建议微调为更中性的外观描述。
+
+### 3.4 外部概念侵入风险评估
+
+* 第 0 档：✅ 纯视觉
+* 第 1 档：⚠️ “后半部分逻辑需靠记忆拼合”——触及认知/记忆负担，非外观
+* 第 2 档：✅ 纯视觉
+* 第 3 档：✅ 纯视觉
+* 第 4 档：✅ 纯视觉
+* 第 5 档：✅ 纯视觉
+
+---
+
+## 4. 修改建议
+
+**无需大改，本量表可作为“代码外观”维度的有效量表。** 以下针对局部不完美点提出精准修改。
+
+### 4.1 名称微调建议
+
+将维度名称从 **“函数/方法长度限制”** 改为 **“函数/方法视觉长度 (Function/Method Visual Length)”** 或 **“函数屏幕占位 (Screen Footprint of Functions)”**，以明确该维度只衡量“在屏幕上看起来有多长”，避免“限制”一词暗示规则/约束。
+
+### 4.2 六档文案修改版
+
+**方向**：分数越高，函数越短、越容易在一眼之内完整接收。
+
+| 档位 | 修改后文案 |
+|------|-----------|
+| **0** | 函数体占据整个屏幕甚至超出数屏，滚动条滑块极小，需要连续翻页才能触达函数尾部 |
+| **1** | 函数体明显超出一屏，看完需向下滚动半屏到一屏，结束处不在当前视野内，需操作滚动条或触控板才能定位到函数末尾 |
+| **2** | 函数主体接近一屏，偶有少数行超出视野，轻轻一滑即可看到底部，整体轮廓在一次视野内勉强完整 |
+| **3** | 函数体约占屏幕一半，签名和尾部同时可见，无需任何滚动，四周有充足留白 |
+| **4** | 函数体类似一个小卡片或终端窗口，约二三十行，一眼从头到尾尽收眼底，紧凑而独立 |
+| **5** | 每个函数极短，仅寥寥数行，像一条笔记条目，视线几乎无需垂直移动，同一屏幕可同时容纳多个函数并排阅读 |
+
+### 4.3 修改要点说明
+
+1. **统一使用纯粹视觉语言**：将第 1 档原有的“后半部分逻辑需靠记忆拼合”替换为“结束处不在当前视野内，需操作滚动条或触控板才能定位到函数末尾”，使全量表 0-5 档均为肉眼可观察的外观特征。
+2. **消除方向混淆风险**：在量表说明中可补充一句方向指引——“分数越高 → 函数视觉长度越短 → 越容易在一屏内完整接收”。
+3. **保留视觉参照物**：保留“滚动条滑块”、“留白”、“卡片”、“终端窗口”、“笔记条目”等具象视觉隐喻，增强档位之间的视觉区分度。
+4. **避免外部概念**：全量表不涉及单一职责、圈复杂度、可测试性、抽象层级等工程/设计概念。
+
+---
+
+## 5. 结论
+
+当前 0-5 档量表在方向性和视觉可观察性上整体合格，仅在名称隐喻（“限制”）和个别档位语言（第 1 档混入认知描述）上存在微小瑕疵。建议采纳上述六档替代文案，无需重写结构。量表可作为“代码外观”维度中函数视觉长度的有效测量工具。
+
+Citations:
+- [reference:0] Exact page | 代码整洁之道--------函数 | https://blog.csdn.net/qq_41993206/article/details/80792781
+- [reference:1] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=27
+  candidate 1: [Tutor] How (not!) lengthy should functions be? | https://mail.python.org/pipermail/tutor/2015-April/104929.html
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 79 chars or more? | https://mail.python.org/pipermail/python-list/2010-August/585089.html
+  candidate 4: 编码风格 - 函数 | https://www.cnblogs.com/xiangtao/archive/2013/04/11/3014722.html
+  candidate 5: 编码之道：小函数的大威力 | https://www.cnblogs.com/mywolrd/p/4386665.html
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Exact page | guides:programstyle:functions [PennWest Edinboro CS Wiki] | https://mirkwood.cs.edinboro.edu/dokuwiki/doku.php?id=guides:programstyle:functions&do=
+- [reference:3] Exact page | 服务端开发规范总结(持续更新) | https://juejin.cn/post/7129044929170374686
+- [reference:4] Exact page | 编码之道：小函数的大威力 | https://www.cnblogs.com/mywolrd/p/4386665.html
+- [reference:5] Search result set | query=max-lines-per-function ESLint Pylint function length rule | candidates=19
+  candidate 1: /docs/rules/rrd/function-size.md - @rrd/vue-mess-detector - JSR | https://jsr.io/@rrd/vue-mess-detector/0.40.0/docs/rules/rrd/function-size.md
+  candidate 2: 随笔档案「2020年9月29日」：sonarqube 关闭或者打开规则 ... - 阿飞afei | https://www.cnblogs.com/kala00k/p/archive/2020/09/29
+  candidate 3: 问如何为java中的声纳设置自定义复杂性限制？EN | https://cloud.tencent.cn/developer/ask/sof/115762601?from=16139
+  candidate 4: 问声纳:方法长度，条件运算符EN | https://cloud.tencent.cn/developer/ask/sof/101479436?from=16139
+  candidate 5: Class: RuboCop::Cop::Metrics::MethodLength | https://www.rubydoc.info/gems/rubocop/RuboCop/Cop/Metrics/MethodLength
+  ... 14 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=max-lines-per-function ESLint Pylint function length rule | candidates=19
+  candidate 1: /docs/rules/rrd/function-size.md - @rrd/vue-mess-detector - JSR | https://jsr.io/@rrd/vue-mess-detector/0.40.0/docs/rules/rrd/function-size.md
+  candidate 2: 随笔档案「2020年9月29日」：sonarqube 关闭或者打开规则 ... - 阿飞afei | https://www.cnblogs.com/kala00k/p/archive/2020/09/29
+  candidate 3: 问如何为java中的声纳设置自定义复杂性限制？EN | https://cloud.tencent.cn/developer/ask/sof/115762601?from=16139
+  candidate 4: 问声纳:方法长度，条件运算符EN | https://cloud.tencent.cn/developer/ask/sof/101479436?from=16139
+  candidate 5: Class: RuboCop::Cop::Metrics::MethodLength | https://www.rubydoc.info/gems/rubocop/RuboCop/Cop/Metrics/MethodLength
+  ... 14 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query=max-lines-per-function ESLint Pylint function length rule | candidates=19
+  candidate 1: /docs/rules/rrd/function-size.md - @rrd/vue-mess-detector - JSR | https://jsr.io/@rrd/vue-mess-detector/0.40.0/docs/rules/rrd/function-size.md
+  candidate 2: 随笔档案「2020年9月29日」：sonarqube 关闭或者打开规则 ... - 阿飞afei | https://www.cnblogs.com/kala00k/p/archive/2020/09/29
+  candidate 3: 问如何为java中的声纳设置自定义复杂性限制？EN | https://cloud.tencent.cn/developer/ask/sof/115762601?from=16139
+  candidate 4: 问声纳:方法长度，条件运算符EN | https://cloud.tencent.cn/developer/ask/sof/101479436?from=16139
+  candidate 5: Class: RuboCop::Cop::Metrics::MethodLength | https://www.rubydoc.info/gems/rubocop/RuboCop/Cop/Metrics/MethodLength
+  ... 14 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query=max-lines-per-function ESLint Pylint function length rule | candidates=19
+  candidate 1: /docs/rules/rrd/function-size.md - @rrd/vue-mess-detector - JSR | https://jsr.io/@rrd/vue-mess-detector/0.40.0/docs/rules/rrd/function-size.md
+  candidate 2: 随笔档案「2020年9月29日」：sonarqube 关闭或者打开规则 ... - 阿飞afei | https://www.cnblogs.com/kala00k/p/archive/2020/09/29
+  candidate 3: 问如何为java中的声纳设置自定义复杂性限制？EN | https://cloud.tencent.cn/developer/ask/sof/115762601?from=16139
+  candidate 4: 问声纳:方法长度，条件运算符EN | https://cloud.tencent.cn/developer/ask/sof/101479436?from=16139
+  candidate 5: Class: RuboCop::Cop::Metrics::MethodLength | https://www.rubydoc.info/gems/rubocop/RuboCop/Cop/Metrics/MethodLength
+  ... 14 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=max-lines-per-function ESLint Pylint function length rule | candidates=19
+  candidate 1: /docs/rules/rrd/function-size.md - @rrd/vue-mess-detector - JSR | https://jsr.io/@rrd/vue-mess-detector/0.40.0/docs/rules/rrd/function-size.md
+  candidate 2: 随笔档案「2020年9月29日」：sonarqube 关闭或者打开规则 ... - 阿飞afei | https://www.cnblogs.com/kala00k/p/archive/2020/09/29
+  candidate 3: 问如何为java中的声纳设置自定义复杂性限制？EN | https://cloud.tencent.cn/developer/ask/sof/115762601?from=16139
+  candidate 4: 问声纳:方法长度，条件运算符EN | https://cloud.tencent.cn/developer/ask/sof/101479436?from=16139
+  candidate 5: Class: RuboCop::Cop::Metrics::MethodLength | https://www.rubydoc.info/gems/rubocop/RuboCop/Cop/Metrics/MethodLength
+  ... 14 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=20
+  candidate 1: "LGTM": Are We Reviewing Code or Just Rubber Stamping It? | https://dev.to/jakkie_koekemoer/lgtm-are-we-reviewing-code-or-just-rubber-stamping-it-ke4
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 编码之道：小函数的大威力 | https://blog.csdn.net/weixin_34019144/article/details/94263886
+  candidate 4: 不讲码德！坏味道偷袭我这个老码农 | https://www.chaojiit.com/home/article/detail/id/86769.html
+  candidate 5: 代码审查的残酷真相：为什么高级开发者从不纠结命名和格式? | https://blog.csdn.net/Ed7zgeE9X/article/details/152746611
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query=max-lines-per-function ESLint Pylint function length rule | candidates=19
+  candidate 1: /docs/rules/rrd/function-size.md - @rrd/vue-mess-detector - JSR | https://jsr.io/@rrd/vue-mess-detector/0.40.0/docs/rules/rrd/function-size.md
+  candidate 2: 随笔档案「2020年9月29日」：sonarqube 关闭或者打开规则 ... - 阿飞afei | https://www.cnblogs.com/kala00k/p/archive/2020/09/29
+  candidate 3: 问如何为java中的声纳设置自定义复杂性限制？EN | https://cloud.tencent.cn/developer/ask/sof/115762601?from=16139
+  candidate 4: 问声纳:方法长度，条件运算符EN | https://cloud.tencent.cn/developer/ask/sof/101479436?from=16139
+  candidate 5: Class: RuboCop::Cop::Metrics::MethodLength | https://www.rubydoc.info/gems/rubocop/RuboCop/Cop/Metrics/MethodLength
+  ... 14 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Search result set | query=max-lines-per-function ESLint Pylint function length rule | candidates=19
+  candidate 1: /docs/rules/rrd/function-size.md - @rrd/vue-mess-detector - JSR | https://jsr.io/@rrd/vue-mess-detector/0.40.0/docs/rules/rrd/function-size.md
+  candidate 2: 随笔档案「2020年9月29日」：sonarqube 关闭或者打开规则 ... - 阿飞afei | https://www.cnblogs.com/kala00k/p/archive/2020/09/29
+  candidate 3: 问如何为java中的声纳设置自定义复杂性限制？EN | https://cloud.tencent.cn/developer/ask/sof/115762601?from=16139
+  candidate 4: 问声纳:方法长度，条件运算符EN | https://cloud.tencent.cn/developer/ask/sof/101479436?from=16139
+  candidate 5: Class: RuboCop::Cop::Metrics::MethodLength | https://www.rubydoc.info/gems/rubocop/RuboCop/Cop/Metrics/MethodLength
+  ... 14 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Exact page | Software Design/Break up too large and complex functions | https://library.kiwix.org/content/wikiversity_en_all_maxi_2021-03/A/Software_Design/Break_up_too_large_and_complex_functions#cite_note-10rules-2
+- [reference:14] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=20
+  candidate 1: "LGTM": Are We Reviewing Code or Just Rubber Stamping It? | https://dev.to/jakkie_koekemoer/lgtm-are-we-reviewing-code-or-just-rubber-stamping-it-ke4
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 编码之道：小函数的大威力 | https://blog.csdn.net/weixin_34019144/article/details/94263886
+  candidate 4: 不讲码德！坏味道偷袭我这个老码农 | https://www.chaojiit.com/home/article/detail/id/86769.html
+  candidate 5: 代码审查的残酷真相：为什么高级开发者从不纠结命名和格式? | https://blog.csdn.net/Ed7zgeE9X/article/details/152746611
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:15] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=20
+  candidate 1: "LGTM": Are We Reviewing Code or Just Rubber Stamping It? | https://dev.to/jakkie_koekemoer/lgtm-are-we-reviewing-code-or-just-rubber-stamping-it-ke4
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 编码之道：小函数的大威力 | https://blog.csdn.net/weixin_34019144/article/details/94263886
+  candidate 4: 不讲码德！坏味道偷袭我这个老码农 | https://www.chaojiit.com/home/article/detail/id/86769.html
+  candidate 5: 代码审查的残酷真相：为什么高级开发者从不纠结命名和格式? | https://blog.csdn.net/Ed7zgeE9X/article/details/152746611
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=20
+  candidate 1: "LGTM": Are We Reviewing Code or Just Rubber Stamping It? | https://dev.to/jakkie_koekemoer/lgtm-are-we-reviewing-code-or-just-rubber-stamping-it-ke4
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 编码之道：小函数的大威力 | https://blog.csdn.net/weixin_34019144/article/details/94263886
+  candidate 4: 不讲码德！坏味道偷袭我这个老码农 | https://www.chaojiit.com/home/article/detail/id/86769.html
+  candidate 5: 代码审查的残酷真相：为什么高级开发者从不纠结命名和格式? | https://blog.csdn.net/Ed7zgeE9X/article/details/152746611
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:17] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=20
+  candidate 1: "LGTM": Are We Reviewing Code or Just Rubber Stamping It? | https://dev.to/jakkie_koekemoer/lgtm-are-we-reviewing-code-or-just-rubber-stamping-it-ke4
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 编码之道：小函数的大威力 | https://blog.csdn.net/weixin_34019144/article/details/94263886
+  candidate 4: 不讲码德！坏味道偷袭我这个老码农 | https://www.chaojiit.com/home/article/detail/id/86769.html
+  candidate 5: 代码审查的残酷真相：为什么高级开发者从不纠结命名和格式? | https://blog.csdn.net/Ed7zgeE9X/article/details/152746611
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:18] Exact page | 第 9 章 在一起更好还是分开更好？ - 9.8 Splitting and joining methods 拆分和合并方法 - 《软件设计的哲学》 - 书栈网 | https://www.bookstack.cn/read/A-Philosophy-of-Software-Design-zh/spilt.8.docs-ch9.md
+- [reference:19] Exact page | 第 9 章 在一起更好还是分开更好？ - 9.8 Splitting and joining methods 拆分和合并方法 - 《软件设计的哲学》 - 书栈网 | https://www.bookstack.cn/read/A-Philosophy-of-Software-Design-zh/spilt.8.docs-ch9.md
+- [reference:20] Exact page | 第 9 章 在一起更好还是分开更好？ - 9.8 Splitting and joining methods 拆分和合并方法 - 《软件设计的哲学》 - 书栈网 | https://www.bookstack.cn/read/A-Philosophy-of-Software-Design-zh/spilt.8.docs-ch9.md
+- [reference:21] Exact page | 第 9 章 在一起更好还是分开更好？ - 9.8 Splitting and joining methods 拆分和合并方法 - 《软件设计的哲学》 - 书栈网 | https://www.bookstack.cn/read/A-Philosophy-of-Software-Design-zh/spilt.8.docs-ch9.md
+- [reference:22] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=27
+  candidate 1: [Tutor] How (not!) lengthy should functions be? | https://mail.python.org/pipermail/tutor/2015-April/104929.html
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 79 chars or more? | https://mail.python.org/pipermail/python-list/2010-August/585089.html
+  candidate 4: 编码风格 - 函数 | https://www.cnblogs.com/xiangtao/archive/2013/04/11/3014722.html
+  candidate 5: 编码之道：小函数的大威力 | https://www.cnblogs.com/mywolrd/p/4386665.html
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:23] Structured reference | TOOL_OPEN#24 | no precise page mapping recovered in text output
+- [reference:24] Exact page | guides:programstyle:functions [PennWest Edinboro CS Wiki] | https://mirkwood.cs.edinboro.edu/dokuwiki/doku.php?id=guides:programstyle:functions&do=
+- [reference:25] Exact page | 代码整洁之道--------函数 | https://blog.csdn.net/qq_41993206/article/details/80792781
+- [reference:26] Exact page | guides:programstyle:functions [PennWest Edinboro CS Wiki] | https://mirkwood.cs.edinboro.edu/dokuwiki/doku.php?id=guides:programstyle:functions&do=
+- [reference:27] Exact page | 读书笔记——《代码整洁之道》第三章 函数 | https://www.cnblogs.com/lilan418/p/7350712.html
+- [reference:28] Exact page | 服务端开发规范总结(持续更新) | https://juejin.cn/post/7129044929170374686
+- [reference:29] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=20
+  candidate 1: "LGTM": Are We Reviewing Code or Just Rubber Stamping It? | https://dev.to/jakkie_koekemoer/lgtm-are-we-reviewing-code-or-just-rubber-stamping-it-ke4
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 编码之道：小函数的大威力 | https://blog.csdn.net/weixin_34019144/article/details/94263886
+  candidate 4: 不讲码德！坏味道偷袭我这个老码农 | https://www.chaojiit.com/home/article/detail/id/86769.html
+  candidate 5: 代码审查的残酷真相：为什么高级开发者从不纠结命名和格式? | https://blog.csdn.net/Ed7zgeE9X/article/details/152746611
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:30] Search result set | query=代码审查 函数长度 可维护性 滚动 视野 记忆负担 | candidates=20
+  candidate 1: "LGTM": Are We Reviewing Code or Just Rubber Stamping It? | https://dev.to/jakkie_koekemoer/lgtm-are-we-reviewing-code-or-just-rubber-stamping-it-ke4
+  candidate 2: > Limit line lengths: Keep lines within a reasonable length (e.g., 100 characters) to ensure read... | https://althacker.news/item?id=46076130
+  candidate 3: 编码之道：小函数的大威力 | https://blog.csdn.net/weixin_34019144/article/details/94263886
+  candidate 4: 不讲码德！坏味道偷袭我这个老码农 | https://www.chaojiit.com/home/article/detail/id/86769.html
+  candidate 5: 代码审查的残酷真相：为什么高级开发者从不纠结命名和格式? | https://blog.csdn.net/Ed7zgeE9X/article/details/152746611
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [citation] [译] 方法的长度 | https://juejin.cn/post/6844903465450209294?from=search-suggest
+- [citation] [C/C++] error: jump to case label, error: crosses initialization of ‘int a’ | https://blog.csdn.net/linwhwylb/article/details/8605364
+- [citation] 3.5 Functions | https://pomerol.informatik.uni-kiel.de/docs/tutorial/html/curry-tutorial.Ch3.S5.html#SS2
+- [citation] 51CTO软考社区 | https://rk.51cto.com/topic/67488ffeac8097637b0d7e25635ff7.html
+- [citation] 表达式在switch case语句中 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E8%A1%A8%E8%BE%BE%E5%BC%8F%E5%9C%A8switch%20case%E8%AF%AD%E5%8F%A5%E4%B8%AD
+- [citation] 并发长轮询函数 | https://cloud.tencent.cn/developer/information/%E5%B9%B6%E5%8F%91%E9%95%BF%E8%BD%AE%E8%AF%A2%E5%87%BD%E6%95%B0-ask
+- [citation] 函数柯里化的意义_RingCentral Tech丨函数不是越短越好的 | https://blog.csdn.net/weixin_35688354/article/details/112314047
+- [citation] 函数式编程的应用场景 | https://juejin.cn/post/7153963164600631332?from=search-suggest
+- [citation] 量表 | https://baike.baidu.com/item/%E6%B8%AC%E9%87%8F%E5%B0%BA%E5%BA%A6/6021001
+- [citation] 设置矩阵量表组件属性_设置表单页面组件属性_创建工作表/工作流_用户指南（零代码）_华为云Astro轻应用-华为云 | https://support.huaweicloud.com/intl/zh-cn/usermanualnocode-astrozero/astrozero_05_1567.html
+- [citation] 使用带有动态长度参数的相关函数 | https://cloud.tencent.cn/developer/information/%E4%BD%BF%E7%94%A8%E5%B8%A6%E6%9C%89%E5%8A%A8%E6%80%81%E9%95%BF%E5%BA%A6%E5%8F%82%E6%95%B0%E7%9A%84%E7%9B%B8%E5%85%B3%E5%87%BD%E6%95%B0
+- [citation] 使用循环或类似函数包装长代码 | https://cloud.tencent.com/developer/information/%E4%BD%BF%E7%94%A8%E5%BE%AA%E7%8E%AF%E6%88%96%E7%B1%BB%E4%BC%BC%E5%87%BD%E6%95%B0%E5%8C%85%E8%A3%85%E9%95%BF%E4%BB%A3%E7%A0%81
+- [citation] 探讨量表适用函数方法的多样性 | https://www.zaixianjisuan.com/jisuanzixun/tantaoliangbiaoshiyonghanshufangfadeduoyangxing.html
+- [citation] 问向量上的长和短形式的逻辑算子EN | https://cloud.tencent.com/developer/ask/sof/110599147?from=16139
+- [citation] 问用启用strictNullChecks的数字比较未定义的数字EN | https://cloud.tencent.cn/developer/ask/sof/107445728?from=16139
+- [citation] 自我感知歧视感量表的汉化及信效度评价 | https://d.wanfangdata.com.cn/periodical/sxhlzz201821027
+- [citation] Can a function be too short? | https://softwareengineering.stackexchange.com/questions/64449/can-a-function-be-too-short/64453#comment148058_64453
+- [citation] ComplexFuncBench: Exploring Multi-Step and Constrained Function Calling under Long-Context Scenario | https://hub-assets-cache.baai.ac.cn/paper/688eaf62-019e-43b1-8ed8-77d9768552e8#related_research
+- [citation] conceptually or conceptually true? | https://textranch.com/c/conceptually-or-conceptually-true/
+- [citation] conceptually造句_用"conceptually"造句 | https://tw.ichacha.net/zaoju/conceptually.html
+- [citation] Difference between revisions of "cpp/language/switch" | https://en.cppreference.com/mwiki/index.php?title=cpp/language/switch&diff=next&oldid=93934&printable=yes
+- [citation] Expressions on LONGs | https://svn.apache.org/repos/asf/db/derby/docs/tags/10.2.1.6/src/devguide/cdevstandards806001.dita
+- [citation] Go 语言怎么使用变长参数函数？ | https://cloud.tencent.cn/developer/article/2142850
+- [citation] Golang 可变参数列表的使用场景有哪些？ | https://m.php.cn/faq/1022408.html
+- [citation] Here is a concrete example for the list based length function. | http://web.cecs.pdx.edu/~sheard/course/Cs163/Doc/RecursiveDesignRecipe.html
+- [citation] Interface LongFunction0 | https://javadoc.io/static/com.linkedin.dagli/all/15.0.0-beta5/com/linkedin/dagli/util/function/LongFunction0.html
+- [citation] Java LongFunction 接口 | https://zetcode.cn/java/function-interface-longfunction/
+- [citation] Java规约之方法设计 | https://www.cnblogs.com/niugang0920/p/12359028.html
+- [citation] js不定长参数函数 | https://cloud.tencent.cn/developer/information/js%E4%B8%8D%E5%AE%9A%E9%95%BF%E5%8F%82%E6%95%B0%E5%87%BD%E6%95%B0-album
+- [citation] Refactoring之——代码的坏味道（一）过长方法 | https://www.cnblogs.com/zjfjava/p/7109376.html
+- [citation] Solving "Can't constrain function type using guard function" in TypeScript | https://code-examples.net/en/q/4bff963
+- [citation] Standards-8Functions | http://cs.ecu.edu/karl/2530/fall17/Notes/Standards/function.html#crippled
+- [citation] Subroutines | Brilliant Math & Science Wiki | https://brilliantorg-infra-prod.brilliant.org/wiki/subroutines/#recursive-functions
+- [citation] Switch case common code (long) | https://tuhs.superglobalmegacorp.com/Unix_Usenet/comp.lang.c/1986-June/000402.html
+- [citation] switch vs. initializing declarations | https://www.tuhs.org/Usenet/comp.lang.c/1990-September/016775.html
+- [citation] switch函数用法与错误分析 | https://blog.csdn.net/cc198877/article/details/8020966
+- [citation] The operator '>' can't be unconditionally invoked because the receiver can be 'null' | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/68649631/the-operator-can-t-be-unconditionally-invoked-because-the-receiver-can-be-null
+- [citation] TypeScript-去除null和undefined检测 | https://cloud.tencent.com.cn/developer/article/2334191?from=15425
+- [citation] unknown、never、any 的严格使用场景 | https://juejin.cn/post/7576843726012055578
+- [citation] When is a function too long? | https://library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/475675/when-is-a-function-too-long
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: d2ed1f0c-5c64-46f6-8aee-b76a9c27f407

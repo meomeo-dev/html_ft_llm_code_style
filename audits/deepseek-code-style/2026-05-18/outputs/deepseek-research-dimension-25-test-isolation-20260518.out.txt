@@ -1,0 +1,243 @@
+回复ID: TestIndependenceCodeAppearance-20260518-001
+
+# 第25维度「测试独立性 (Test Independence)」审查报告
+
+## 一、维度名称评估
+
+**维度名称「测试独立性」准确表达了测试之间隔离程度在测试代码中的可见形态。** 该名称直接指向测试方法之间是否相互依赖、是否共享可变状态这一核心属性，与业界对测试独立性的定义一致——测试不应依赖特定执行顺序，每个测试前初始化状态，结束后清理资源[reference:0]。在本量表的上下文中（关注"代码长什么样"），该名称是可接受的。但需注意：名称未显式体现"代码外观"约束，可在维度描述中补充说明本维度关注的是**肉眼可观测的代码形态**。
+
+## 二、0-5 档单调性与可观测性评估
+
+### 2.1 整体单调性判断
+
+**档位 0→1→2→3 方向正确、单调递增**，共享状态范围从"文件级全局变量"收缩到"测试文件级 fixture"再到"每个函数 Arrange 块"。
+
+**档位 4→5 出现方向逆转**：第 4 档的函数级 fixture + 内存数据库在隔离程度上已经是很强的单元测试隔离；第 5 档引入 testcontainers，退回到集成测试范畴，依赖真实外部服务（Docker 容器），反而降低了纯单元测试视角下的隔离性。
+
+### 2.2 逐档可观测性分析
+
+**档 0** ⭐⭐⭐⭐⭐ **高度可观测**。读者可以在测试文件顶部看到 `const db = new Database()` 或 `let globalState = {}` 等全局变量声明，以及测试函数体中 `globalState.users.push(...)` 的直接引用——这是典型的共享可变状态（shared mutable state），表现为**全局变量污染**和**包级变量共享**[reference:1]。
+
+**档 1** ⭐⭐⭐⭐ **可观测**。`setUp` 方法中的真实数据库连接字符串（如 `mysql://prod-server:3306`）可在代码中直接看到；"顺序依赖注释"如 `// 必须在 testCreateUser 之后运行` 也肉眼可见。这一档的关键**代码外观**信号是：`@BeforeEach` / `setUp` 中包含真实外部依赖初始化代码，且注释中暗示执行顺序要求[reference:2]。`@Before` / `setUp` 的存在本身不是问题——关键在于其内部连接的是真实数据库（而非可控的测试替身）[reference:3]。
+
+**档 2** ⭐⭐⭐⭐ **可观测**。每个测试文件的 fixture 是本地的（非 conftest 全局），INSERT 语句在测试函数内可见。读者可以看到 `db.execute("INSERT INTO users ...")` 直接写在测试函数体中。但需注意：如果 fixture 是 `module` 级别的，同一模块内的测试仍可能共享数据库中的残留数据，导致**测试间副作用**——这正是业界强调每个测试应自包含（self-contained）的原因[reference:4]。
+
+**档 3** ⭐⭐⭐⭐ **可观测**。"文件间无共享 fixture"通过代码组织可见（没有跨文件的 conftest 或共享 helper）；"独立 Arrange 块"表现为每个测试函数内部都有完整的 Given-When-Then 结构，其中 Arrange 阶段创建所有所需对象，不依赖外部设置。这符合 **Four-Phase Test** 模式，即每个测试独立完成 fixture setup → exercise SUT → result verification → fixture teardown[reference:5]。
+
+**档 4** ⭐⭐⭐⭐⭐ **高度可观测**。`@pytest.fixture(scope='function')` 装饰器肉眼可见；`sqlite:///:memory:` 连接字符串直接在代码中出现。函数级 fixture 确保每个测试获得独立的 fixture 实例，结合内存数据库，实现每个测试的完全隔离[reference:6]。这是多数主流语言测试框架的标准最佳实践，在 pytest 中通过 `scope='function'` 明确声明、在 JUnit 5 中通过 `PER_METHOD` 生命周期实现[reference:7]。
+
+**档 5** ⭐⭐⭐⭐⭐ **高度可观测但方向错误**。`import testcontainers` 和容器启动代码肉眼可见；注释中"不见网络调用"可以是被动观测的。问题是：testcontainers 启动的是真实 Docker 容器，属于**集成测试**范畴，测试与外部服务交互，而非纯单元测试的隔离[reference:8][reference:9]。将 testcontainers 设为最高档，隐含"使用容器化依赖比内存数据库更隔离"的错误假设——实际上容器化真实服务引入了更多外部依赖，**降低了**（而非提高了）测试的独立性。
+
+### 2.3 概念混淆诊断
+
+量表存在以下概念混淆：
+
+1. **"隔离"概念与"真实性"概念混淆**：档 4 用内存数据库（高度隔离的单元测试），档 5 用 testcontainers（真实但外部依赖更重的集成测试），两者不在同一维度上。**隔离**是指测试之间互不干扰的程度；**真实性**是指依赖与生产环境的相似程度。本量表将"更真实的依赖"误当作"更高的隔离"，这违反了单一维度原则。
+
+2. **档 4 与档 3 的区分不够清晰**：档 3 的"函数级 Arrange 块"和档 4 的"函数级 fixture 装饰器"在代码外观上都是每个测试独立创建依赖，区别仅在于是否使用了框架的 fixture 机制。两者在测试独立性上基本等价，将 fixture 装饰器视为更高档位缺乏充分依据。
+
+3. **真实数据库与内存数据库的线性关系存疑**：真实数据库不一定代表隔离性差（只要每个测试创建独立 schema），内存数据库也不一定代表隔离性好（如果用 session scope 共享）。代码外观反映的是**代码中可见的共享边界**，而非运行时行为。
+
+## 三、修改建议
+
+建议将量表重构为**纯"测试独立性代码外观"**维度，严格聚焦于肉眼可见的共享状态边界收缩，移除 testcontainers（它属于另一维度，如"测试环境真实性"或"依赖管理方式"）：
+
+**替代文案（6 条）：**
+
+- **0**: 测试文件顶部有模块级可变变量（`db = None`、`users = []`），多个测试函数通过非参数方式读写该变量
+- **1**: 测试类中存在实例字段在 `setUp`/`@BeforeEach` 中初始化，测试方法通过 `self`/`this` 读写，注释暗示执行顺序依赖
+- **2**: 每个测试函数独立创建被测对象（Arrange 块内 `new` 或工厂函数），不使用共享 fixture，数据库连接字符串仍指向外部地址
+- **3**: 所有外部依赖通过测试函数参数注入（pytest fixture 参数 / JUnit 方法参数），fixture scope 声明为 `function` 或等价默认值
+- **4**: 测试文件中不含任何模块级变量或类级可变字段，所有测试数据在测试函数体内以局部变量形式创建
+- **5**: 每个测试函数使用独立的内存数据库实例（`sqlite:///:memory:` / H2 in-memory），连接字符串在测试函数体内可见，不存在跨测试的连接复用
+
+---
+
+### 各档位代码外观示例（辅助理解）
+
+以下示例为伪代码/混合语法，仅用于说明"代码长什么样"，不绑定具体语言或框架。
+
+**档 0 — 模块级可变全局变量被多测试函数读写**
+```python
+# test_user.py 顶部
+db = None
+users = []
+
+def test_create_user():
+    global db, users
+    db = Database("postgres://prod:5432")
+    users.append("alice")
+    assert len(users) == 1
+
+def test_delete_user():
+    # 隐式依赖 test_create_user 先运行
+    assert "alice" in users  # 如果 test_create_user 未先执行则失败
+```
+
+**档 1 — setUp 连接真实数据库，注释中见顺序依赖**
+```python
+class TestOrder:
+    def setUp(self):
+        self.db = connect("mysql://prod-db:3306")
+        self.db.execute("DELETE FROM orders")  # 共享清理逻辑
+
+    def test_create_order(self):
+        # ⚠️ 此测试必须在 test_update_order 之前运行
+        order_id = self.db.insert("INSERT INTO orders ...")
+        self.db.execute("UPDATE orders SET status='shipped' ...")
+```
+
+**档 2 — 每个测试文件本地 fixture，INSERT 在测试函数内可见**
+```python
+# test_products.py（非 conftest）
+@pytest.fixture(scope="module")
+def products_db():
+    db = create_engine("postgres://localhost/test")
+    db.execute("CREATE TABLE IF NOT EXISTS products ...")
+    yield db
+    db.execute("DROP TABLE products")
+
+def test_add_product(products_db):
+    products_db.execute("INSERT INTO products VALUES ('widget', 10)")
+    result = products_db.execute("SELECT * FROM products")
+    assert len(result) == 1  # 可能被同模块其他测试的 INSERT 残留影响
+```
+
+**档 3 — 每个测试独立 Arrange 块创建所有对象**
+```python
+def test_checkout():
+    # Arrange — 所有对象在函数体内创建
+    cart = ShoppingCart()
+    cart.add(Item("book", price=15))
+    payment = PaymentService(FakeGateway())
+
+    # Act
+    receipt = cart.checkout(payment)
+
+    # Assert
+    assert receipt.total == 15
+
+def test_empty_cart():
+    cart = ShoppingCart()          # 独立创建，不依赖上一个测试
+    assert cart.total == 0
+```
+
+**档 4 — 函数级 fixture 装饰器 + 内存数据库**
+```python
+@pytest.fixture(scope="function")     # ← 肉眼可见 scope='function'
+def user_repo():
+    engine = create_engine("sqlite:///:memory:")  # ← 肉眼可见 :memory:
+    Base.metadata.create_all(engine)
+    return UserRepository(engine)
+
+def test_create_user(user_repo):
+    user_repo.add(User("bob"))
+    assert user_repo.count() == 1   # 每个测试获得独立内存库
+
+def test_empty_repo(user_repo):
+    assert user_repo.count() == 0   # 不受上一个测试影响
+```
+
+**档 5 — 每个测试函数体内独立的局部变量 + 内存数据库实例**
+```python
+def test_create_user():
+    # 所有状态在函数体内以局部变量形式存在
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    repo = UserRepository(engine)
+    repo.add(User("alice"))
+    assert repo.count() == 1
+    engine.dispose()  # 显式销毁，无泄漏
+
+def test_delete_user():
+    engine = create_engine("sqlite:///:memory:")  # 完全独立的实例
+    Base.metadata.create_all(engine)
+    repo = UserRepository(engine)
+    repo.add(User("alice"))
+    repo.delete("alice")
+    assert repo.count() == 0
+```
+
+---
+
+## 四、总结
+
+- **名称**：「测试独立性」准确，建议在维度描述中补充"代码外观"视角的约束说明。
+- **单调性**：档 0→3 单调正确，档 4→5 方向逆转。
+- **可观测性**：所有档位均可在代码中直接观测，但档 5 的可观测对象（testcontainers import）与"隔离程度"不构成正相关。
+- **核心问题**：档 5 将集成测试的"环境真实性"误并入"测试隔离"维度，破坏了单一维度原则。建议采用上述替代方案，严格按"共享状态在代码中的可见边界"构建线性量表。
+
+Citations:
+- [reference:0] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=47
+  candidate 1: @BeforeAll and @AfterAll in Non-Static Methods | Baeldung | https://www.baeldung.com/java-beforeall-afterall-non-static#respond
+  candidate 2: 可以在JEST中清除模块的mock吗？ - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E5%8F%AF%E4%BB%A5%E5%9C%A8JEST%E4%B8%AD%E6%B8%85%E9%99%A4%E6%A8%A1%E5%9D%97%E7%9A%84mock%E5%90%97%EF%BC%9F-article
+  candidate 3: 来自函数作用域fixture的pytest访问参数 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E6%9D%A5%E8%87%AA%E5%87%BD%E6%95%B0%E4%BD%9C%E7%94%A8%E5%9F%9Ffixture%E7%9A%84pytest%E8%AE%BF%E9%97%AE%E5%8F%82%E6%95%B0
+  candidate 4: 如何在每次测试之间清除jest状态(spies，mock)？ - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E5%A6%82%E4%BD%95%E5%9C%A8%E6%AF%8F%E6%AC%A1%E6%B5%8B%E8%AF%95%E4%B9%8B%E9%97%B4%E6%B8%85%E9%99%A4jest%E7%8A%B6%E6%80%81(spies%EF%BC%8Cmock)%EF%BC%9F-article
+  candidate 5: 如何在Jest中重置测试之间的模拟调用记录？ | https://cloud.tencent.cn/developer/information/%E5%A6%82%E4%BD%95%E5%9C%A8Jest%E4%B8%AD%E9%87%8D%E7%BD%AE%E6%B5%8B%E8%AF%95%E4%B9%8B%E9%97%B4%E7%9A%84%E6%A8%A1%E6%8B%9F%E8%B0%83%E7%94%A8%E8%AE%B0%E5%BD%95%EF%BC%9F-ask
+  ... 42 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=53
+  candidate 1: 【Go测试数据隔离】：避免测试间相互污染的5种有效策略 | https://datasea.cn/go1216359029.html
+  candidate 2: 不能使被模拟的单例方法在不同的测试用例中表现不同 | https://cloud.tencent.com.cn/developer/information/%E4%B8%8D%E8%83%BD%E4%BD%BF%E8%A2%AB%E6%A8%A1%E6%8B%9F%E7%9A%84%E5%8D%95%E4%BE%8B%E6%96%B9%E6%B3%95%E5%9C%A8%E4%B8%8D%E5%90%8C%E7%9A%84%E6%B5%8B%E8%AF%95%E7%94%A8%E4%BE%8B%E4%B8%AD%E8%A1%A8%E7%8E%B0%E4%B8%8D%E5%90%8C-ask
+  candidate 3: 从pytest fixture中的内部函数访问值 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BB%8Epytest%20fixture%E4%B8%AD%E7%9A%84%E5%86%85%E9%83%A8%E5%87%BD%E6%95%B0%E8%AE%BF%E9%97%AE%E5%80%BC
+  candidate 4: 单元测试实践思考(junit5+jmockit+testcontainer) | https://my.oschina.net/u/4292220/blog/3237209
+  candidate 5: 单元测试中如何保持测试独立性：从原理到实践 | https://javaguidepro.com/blog/dan-yuan-ce-shi-zhong-ru-he-bao-chi-ce-shi-du-li-xing/#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%B5%8B%E8%AF%95%E7%8B%AC%E7%AB%8B%E6%80%A7
+  ... 48 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=xUnit Test Patterns shared fixture anti-pattern code smell | candidates=47
+  candidate 1: @BeforeAll and @AfterAll in Non-Static Methods | Baeldung | https://www.baeldung.com/java-beforeall-afterall-non-static#respond
+  candidate 2: 可以在JEST中清除模块的mock吗？ - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E5%8F%AF%E4%BB%A5%E5%9C%A8JEST%E4%B8%AD%E6%B8%85%E9%99%A4%E6%A8%A1%E5%9D%97%E7%9A%84mock%E5%90%97%EF%BC%9F-article
+  candidate 3: 来自函数作用域fixture的pytest访问参数 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E6%9D%A5%E8%87%AA%E5%87%BD%E6%95%B0%E4%BD%9C%E7%94%A8%E5%9F%9Ffixture%E7%9A%84pytest%E8%AE%BF%E9%97%AE%E5%8F%82%E6%95%B0
+  candidate 4: 如何在每次测试之间清除jest状态(spies，mock)？ - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E5%A6%82%E4%BD%95%E5%9C%A8%E6%AF%8F%E6%AC%A1%E6%B5%8B%E8%AF%95%E4%B9%8B%E9%97%B4%E6%B8%85%E9%99%A4jest%E7%8A%B6%E6%80%81(spies%EF%BC%8Cmock)%EF%BC%9F-article
+  candidate 5: 如何在Jest中重置测试之间的模拟调用记录？ | https://cloud.tencent.cn/developer/information/%E5%A6%82%E4%BD%95%E5%9C%A8Jest%E4%B8%AD%E9%87%8D%E7%BD%AE%E6%B5%8B%E8%AF%95%E4%B9%8B%E9%97%B4%E7%9A%84%E6%A8%A1%E6%8B%9F%E8%B0%83%E7%94%A8%E8%AE%B0%E5%BD%95%EF%BC%9F-ask
+  ... 42 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: c012a034-b811-446b-bd83-3f21a2510169

@@ -1,0 +1,193 @@
+**回复ID**: inputValidationStrictness-20260518-001
+
+---
+
+## 一、维度名称准确性审查
+
+### **维度名称准确表达了"输入验证严格度"的代码外观**
+
+**Input Validation Strictness（输入验证严格度）** 这个名称聚焦于代码中"能否看到验证逻辑"的可见程度，完全从代码外观维度出发。OWASP 代码审查指南指出输入验证是"最有效的应用安全技术控制之一"，代码审查时应关注"所有外部输入都被检查和验证"[reference:0]。该名称准确概括了从"看不到任何验证"到"存在显式验证管线"的视觉递进。
+
+---
+
+## 二、0-5 档单调递进性审查
+
+### **六档在同一视觉维度上单调递进，但第1档存在定位偏差**
+
+| 档位 | 描述摘要 | 视觉特征 | 评价 |
+|------|----------|----------|------|
+| **0** | 参数直接传入业务逻辑，无任何检查 | 代码路径上完全没有验证语句 | 基准，正确 |
+| **1** | 仅前端可见 `required`/`maxlength`/`pattern` | HTML 属性或 JS 校验，后端入口无验证 | **存在问题**（见下文） |
+| **2** | 后端出现 `if`/`typeof`/`length`/正则等内联检查 | 控制器或路由中出现逐字段判断块 | 正确 |
+| **3** | `ALLOWED_VALUES`/`enum`/`Set.has()`/`includes()` 白名单对比 | 输入点旁可见白名单数据结构 | 正确 |
+| **4** | 独立 schema/validator 定义，入口处调用 `parse()`/`validate()` | 声明式 schema 定义 + 显式调用 | 正确 |
+| **5** | 请求链中多个命名验证中间件或 `assert`/`check` 形成管线 | 可识别的中间件链或断言调用链 | 正确 |
+
+### **第1档的问题：前端校验不应占据独立档位**
+
+第1档（前端校验）和第2档（后端内联检查）之间并非严格的**同一维度上的单调递进**。前端校验和后端校验属于**不同的执行位置**而非验证严格度的递进——OWASP 明确指出"客户端验证可被轻易绕过，服务端验证才是安全基础"[reference:1]。一个只有前端校验的系统严格度应被视为**等同于第0档**（无有效验证），而非独立档位。
+
+**建议**：将第1档修改为"后端入口处存在零散的、不完整的类型或存在性检查（如单个 `if (x)` 判空）"，使递进关系完全落在后端验证的严格度轴上。
+
+---
+
+## 三、跨维度内容识别
+
+### **以下内容存在跨维度风险**
+
+**1. 前端校验的独立档位（第1档）问题**
+
+如前所述，前端校验是**部署位置**概念，不是**严格度**概念。当前量表将"前端有后端无"设为第1档，容易导致审阅者将"优秀的前端校验体验"误判为"有一定的输入验证严格度"——这与量表目标冲突。
+
+**2. "白名单"（Allowlisting）与"黑名单"（Denylisting）的语义陷阱**
+
+第3档使用"白名单对比"是正确的代码外观描述——审阅者可以看到 `ALLOWED_VALUES`、`Set.has()` 等数据结构。但需警惕审阅者将"黑名单过滤"（如 `str.replace(/<script>/g, '')`）也纳入此档——黑名单属于**输出净化/过滤**而非输入验证。OWASP 明确区分 allowlisting 与 denylisting，指出 allowlisting 是推荐的最小方法[reference:2]。
+
+**3. 业务规则未混入当前量表——但需保持警惕**
+
+当前 0-5 档均未涉及业务规则。但若未来修订，需注意 OWASP 区分"数据验证"（Data Validation）与"业务验证"（Business Validation）——业务验证关注"值范围或交易是否合理"，属于业务逻辑层[reference:3]。业务规则混合输入验证是一种代码异味（Code Smell），应在量表说明中明确排除。
+
+**4. 净化（Sanitization）未混入量表——正确**
+
+输出净化（如 HTML 实体编码、SQL 参数化）与输入验证是不同概念——验证回答"数据是否符合预期格式"，净化回答"如何安全处理数据"[reference:4]。当前量表完全聚焦输入验证外观，未涉及净化，这是正确的。
+
+---
+
+## 四、替代文案建议
+
+基于以上审查，推荐以下 6 条从代码外观直接观察的文案（修改了第 1 档，其余微调）：
+
+> **0** — 请求参数或表单数据直接传入业务逻辑，代码路径上完全看不到任何 `if`、正则、断言、类型检查或验证库调用。
+>
+> **1** — 后端入口处存在零散的、不完整的存在性或类型检查（如单个 `if (x)` 判空或 `typeof` 检测），但未覆盖全部输入字段。
+>
+> **2** — 后端路由或控制器中出现系统性的 `if`/`typeof`/`length`/正则表达式等内联边界检查块，逐字段覆盖主要输入点。
+>
+> **3** — 输入点旁可见 `ALLOWED_VALUES` 常量、`enum` 定义、`Set.has()` 或 `includes()` 等白名单数据结构，用于精确约束合法值集合。
+>
+> **4** — 独立 schema 或 validator 定义成块（如 Joi / Zod / Pydantic 类型注解），入口处显式调用 `parse()` / `validate()` 等方法进行声明式校验。
+>
+> **5** — 请求处理链中可见多个命名验证中间件或 `assert`/`check` 调用，形成可识别的显式验证管线（Pipeline）。
+
+### 修改说明
+
+| 修改点 | 原描述 | 新描述 | 依据 |
+|--------|--------|--------|------|
+| 第1档重写 | 客户端校验 | 后端零散的存在性检查 | OWASP：前端校验不可依赖[reference:5]；客户端校验与严格度不构成递进关系 |
+| 第2档强化 | "后端路由或控制器中出现" | 加入"逐字段覆盖主要输入点" | 区分零散检查（第1档）与系统性的内联检查（第2档） |
+| 第3档微调 | "ALLOWED_VALUES、enum、Set.has() 或 includes()" | 加入"用于精确约束合法值集合" | 强调白名单的语义特征 |
+| 第4档微调 | "独立 schema 或 validator 定义成块" | 加入"(如 Joi / Zod / Pydantic 类型注解)" | 提供具体可观察的代码模式 |
+| 第5档微调 | "形成显式验证管线" | 加入"Pipeline" | 更精确描述中间件链的视觉特征 |
+
+---
+
+## 五、建议来源说明
+
+| 判断内容 | 来源 |
+|----------|------|
+| 维度名称"输入验证严格度"准确性的判断 | **推断**（基于量表目标定义与名称一致性的分析） |
+| 第1档（前端校验）存在定位偏差 | **推断**（基于前端校验可绕过的安全常识与量表的"视觉递进"目标对比） |
+| 白名单 vs 黑名单的区分 | **公开资料**：OWASP C5: Validate All Inputs[reference:6] |
+| 业务规则与输入验证的区分 | **公开资料**：OWASP CRV2 InputValIntro[reference:7] |
+| 净化与验证的区分 | **公开资料**：WordPress VIP 文档及 PHP 社区定义[reference:8] |
+| 替代文案的撰写 | **推断**（基于公开资料的指导原则，结合量表设计目标推导） |
+
+---
+
+## 六、公开资料来源（≥3）
+
+1. **OWASP Code Review Guide v2 — Input Validation Introduction**：区分数据验证、业务验证、白名单与黑名单，是代码审查中判断验证严格度的重要参考[reference:9]。
+2. **OWASP Top 10 Proactive Controls — C5: Validate All Inputs**：明确 Allowlisting vs Denylisting 的定义，以及客户端与服务端验证的职责边界[reference:10]。
+3. **WordPress VIP — Validation vs. Sanitization**：明确区分验证（确保数据匹配预期）与净化（确保数据不包含危险内容）[reference:11]。
+4. **OWASP ASVS V5 — Input Validation Requirements**（补充参考）：定义不同验证级别，使用正向白名单和强类型可消除 90% 以上注入攻击[reference:12]。
+5. **Tencent Cloud TechPedia — Schema Validation Libraries**（补充参考）：展示 Joi / Zod / Pydantic 等 schema 验证库的代码外观模式[reference:13]。
+
+---
+
+## 七、总结
+
+当前量表的 **0、2、3、4、5 档** 构成了一条清晰的"输入验证严格度"视觉递进链，维度名称准确。核心问题在于 **第 1 档**（前端校验）打破了同一维度的递进逻辑——它测量的是验证代码的部署位置而非严格度。建议将第 1 档替换为"后端零散的存在性/类型检查"，使全部六档严格沿着"后端验证手段的强度和覆盖面"递增。替代文案已在上方给出，可直接替换使用。
+
+Citations:
+- [reference:0] Exact page | Difference between revisions of "CRV2 InputValIntro" | https://wiki.owasp.org/index.php?title=CRV2_InputValIntro&diff=prev&oldid=171666
+- [reference:1] Exact page | C5: Validate All Inputs | https://top10proactive.owasp.org/archive/2018/c5-validate-inputs/#allowlisting-vs-denylisting
+- [reference:2] Exact page | C5: Validate All Inputs | https://top10proactive.owasp.org/archive/2018/c5-validate-inputs/#allowlisting-vs-denylisting
+- [reference:3] Exact page | Difference between revisions of "CRV2 InputValIntro" | https://wiki.owasp.org/index.php?title=CRV2_InputValIntro&diff=prev&oldid=171666
+- [reference:4] Search result set | query=validation sanitization difference input validation code security | candidates=5
+  candidate 1: Difference between revisions of "Data Validation" | https://wiki.owasp.org/index.php?title=Data_Validation&diff=prev&oldid=45101
+  candidate 2: User input sanitization and validation | TinyMCE | https://www.tiny.cloud/blog/input-sanitization/
+  candidate 3: Validation and Sanitation with PHP | https://www.sitepoint.com/community/t/validation-and-sanitation-with-php/265434
+  candidate 4: Validation vs. Sanitization: Key Differences | WordPress VIP | https://wpvip.com/blog/validation-vs-sanitization/
+  candidate 5: what is the difference between sanitizing and validation in php? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/32577959/what-is-the-difference-between-sanitizing-and-validation-in-php
+- [reference:5] Exact page | C5: Validate All Inputs | https://top10proactive.owasp.org/archive/2018/c5-validate-inputs/#allowlisting-vs-denylisting
+- [reference:6] Exact page | C5: Validate All Inputs | https://top10proactive.owasp.org/archive/2018/c5-validate-inputs/#allowlisting-vs-denylisting
+- [reference:7] Exact page | Difference between revisions of "CRV2 InputValIntro" | https://wiki.owasp.org/index.php?title=CRV2_InputValIntro&diff=prev&oldid=171666
+- [reference:8] Search result set | query=validation sanitization difference input validation code security | candidates=5
+  candidate 1: Difference between revisions of "Data Validation" | https://wiki.owasp.org/index.php?title=Data_Validation&diff=prev&oldid=45101
+  candidate 2: User input sanitization and validation | TinyMCE | https://www.tiny.cloud/blog/input-sanitization/
+  candidate 3: Validation and Sanitation with PHP | https://www.sitepoint.com/community/t/validation-and-sanitation-with-php/265434
+  candidate 4: Validation vs. Sanitization: Key Differences | WordPress VIP | https://wpvip.com/blog/validation-vs-sanitization/
+  candidate 5: what is the difference between sanitizing and validation in php? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/32577959/what-is-the-difference-between-sanitizing-and-validation-in-php
+- [reference:9] Exact page | Difference between revisions of "CRV2 InputValIntro" | https://wiki.owasp.org/index.php?title=CRV2_InputValIntro&diff=prev&oldid=171666
+- [reference:10] Exact page | C5: Validate All Inputs | https://top10proactive.owasp.org/archive/2018/c5-validate-inputs/#allowlisting-vs-denylisting
+- [reference:11] Search result set | query=validation sanitization difference input validation code security | candidates=5
+  candidate 1: Difference between revisions of "Data Validation" | https://wiki.owasp.org/index.php?title=Data_Validation&diff=prev&oldid=45101
+  candidate 2: User input sanitization and validation | TinyMCE | https://www.tiny.cloud/blog/input-sanitization/
+  candidate 3: Validation and Sanitation with PHP | https://www.sitepoint.com/community/t/validation-and-sanitation-with-php/265434
+  candidate 4: Validation vs. Sanitization: Key Differences | WordPress VIP | https://wpvip.com/blog/validation-vs-sanitization/
+  candidate 5: what is the difference between sanitizing and validation in php? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/32577959/what-is-the-difference-between-sanitizing-and-validation-in-php
+- [reference:12] Search result set | query="input validation" strictness scale level | candidates=5
+  candidate 1: 5.4.3 TODO¶ | https://owasp-aasvs4.readthedocs.io/en/latest/5.4.3.html
+  candidate 2: checking | Down Home Country Coding With Scott Selikoff and Jeanne BoyarskyDown Home Country Coding With Scott Selikoff and Jeanne Boyarsky | https://www.selikoff.net/tag/checking/
+  candidate 3: Difference between revisions of "ASVS V5 Input validation and output encoding" | https://wiki.owasp.org/index.php?diff=cur&oldid=238671&title=ASVS_V5_Input_validation_and_output_encoding
+  candidate 4: OWASP ASVS - V5 - Validation, Sanitization and Encoding Verification Requirements - Guides - Useful tips and tricks to secure your enterprise. | by G5 Cyber Security | https://guides.g5cybersecurity.com/kb/owasp-asvs-v5-validation-sanitization-and-encoding-verification-requirements/
+  candidate 5: OWASP ASVS 5.0中关于输入验证级别划分的技术思考 | https://blog.gitcode.com/c10ead170545a7cc6ff3fed5e0f9049f.html
+- [reference:13] Exact page | How to validate field types in JSON data interface? | https://www.tencentcloud.com/techpedia/127979
+- [citation] @rick001/http-waf-middleware | https://www.npmjs.com/package/@rick001/http-waf-middleware
+- [citation] 03 Sanitization | https://cornucopia.owasp.org/taxonomy/asvs-5.0/01-encoding-and-sanitization/03-sanitization
+- [citation] 问为什么前端验证是在注册表单上使用，而不是在登录表单上使用？EN | https://cloud.tencent.cn/developer/ask/sof/115213192?from=16139
+- [citation] alexweissman/fortress | https://root.packagist.org/packages/alexweissman/fortress
+- [citation] Best Schema Validation Tools for Developers in 2024: Ensure Data Consistency Across APIs, Databases, and Configs | https://debugg.ai/resources/best-schema-validation-tools-2024
+- [citation] Business Validation Logic Code Smell | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/635519/business-validation-logic-code-smell
+- [citation] Code Smell – Primitive Obsession and Refactoring Recipes - NDepend Blog | https://blog.ndepend.com/code-smell-primitive-obsession-and-refactoring-recipes/
+- [citation] Code Smell 143 - Data Clumps | https://Dev.to/mcsee/code-smell-143-data-clumps-52f6
+- [citation] Code Smell 301 - Database as Parameter | https://dev.to/mcsee/code-smell-301-database-as-parameter-27
+- [citation] CRV2 InputValIntro | https://wiki.owasp.org/index.php/CRV2_InputValIntro
+- [citation] CVE-2021-47967 | https://vuldb.com/cve/CVE-2021-47967
+- [citation] CVE-2021-47970 in Macaron Notes Gear Notebook | https://vuldb.com/cve/CVE-2021-47970
+- [citation] Decision Table analysis | https://my.blueriq.com/pages/viewpage.action?pageId=5473378
+- [citation] Deep Understanding from SAMM framework | https://sammy.codific.com/browse/samm/verification/security-testing/deep-understanding
+- [citation] Difference between revisions of "SAMM - Verification" | https://wiki.owasp.org/index.php?title=SAMM_-_Verification&diff=59791&oldid=59787
+- [citation] Difference between revisions of "Security Code Review in the SDLC" | https://wiki.owasp.org/index.php?title=Security_Code_Review_in_the_SDLC&diff=19192&oldid=14927&printable=yes
+- [citation] For form validation should I use javascript or a backend language. which one is better | Sololearn: Learn to code for FREE! | https://www.sololearn.com/nl/Discuss/7508/for-form-validation-should-i-use-javascript-or-a-backend-language-which-one-is-better
+- [citation] GitHub - FallingSnow/joi: :office: Object schema validation | https://app4.secure.forcepoint.com/FallingSnow/joi
+- [citation] GitHub - symlex/input-validation: A secure whitelist validation layer for PHP ('accept known good') | https://app4.secure.forcepoint.com/symlex/input-validation
+- [citation] Go工程英语成熟度评估模型（GEM v2.1）：覆盖代码/文档/协作/社区4维度，仅限前500名Gopher申请试测 | https://datasea.cn/go0423595644.html
+- [citation] Golden Rules for Combining Front-end Security and UI | https://www.codemotion.com/magazine/frontend/golden-rules-for-combining-front-end-security-and-ui/
+- [citation] Input Validation and Profanity Filtering | qbcore-framework/qb-multicharacter | DeepWiki | https://deepwiki.com/qbcore-framework/qb-multicharacter/4.4-input-validation-and-profanity-filtering
+- [citation] Input Validation from ASVS framework | https://sammy.codific.com/browse/asvs/validation-and-business-logic/input-validation
+- [citation] lastzero/php-input-validation | https://packagist.org/packages/lastzero/php-input-validation
+- [citation] Module productionCopy item path | https://docs.rs/scirs2-core/0.1.0-alpha.5/i686-unknown-linux-gnu/scirs2_core/validation/production/index.html
+- [citation] OWASP - User contributions [en] | https://wiki.owasp.org/api.php?action=feedcontributions&user=Crazyben&feedformat=atom
+- [citation] Packagist The PHP Package Repository | https://packagist.org/packages/anders/fortress
+- [citation] Phone numbers would be written like; "John Doe... — DEV Community | https://dev.to/joelbonetr/comment/213l1
+- [citation] Prisma Cloud Technical Documentation | https://docs.prismacloud.io/en/enterprise-edition/policy-reference/sast-policies/java-policies/sast-policy-103
+- [citation] Request Sanitization | langgenius/dify-plugin-daemon | DeepWiki | https://deepwiki.com/langgenius/dify-plugin-daemon/8.1-request-sanitization
+- [citation] REST API + Frontend - Validation Best Practices | https://library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/34204627/rest-api-frontend-validation-best-practices
+- [citation] Revision 267f092b-a8b4-4b09-ac45-676c55d0f2b7 | https://security.stackexchange.com/revisions/267f092b-a8b4-4b09-ac45-676c55d0f2b7/view-source
+- [citation] Revision 5e1dd944-cc95-481f-99e7-f97fae2f0494 | https://security.stackexchange.com/revisions/5e1dd944-cc95-481f-99e7-f97fae2f0494/view-source
+- [citation] Revisions to If we write validation in sever side, don't it become two times of writing same code? What is the standard software engineering solution for it? [duplicate] | https://softwareengineering.stackexchange.com/posts/394135/revisions
+- [citation] RubyDoc.info: Method: Owasp::Esapi::Encoder#sanitize – Documentation for owasp-esapi-ruby (0.30.0) – RubyDoc.info | https://rubydoc.info/gems/owasp-esapi-ruby/Owasp%2fEsapi%2fEncoder:sanitize
+- [citation] SAMM - Code Review - 2 | https://wiki.owasp.org/index.php?title=SAMM_-_Code_Review_-_2&direction=prev&oldid=59953
+- [citation] SAMM 資訊安全軟體成熟度模型 – 驗證面 | http://www.qa-knowhow.com/?p=85
+- [citation] Security Code Review in the SDLC | https://wiki.owasp.org/index.php?title=Security_Code_Review_in_the_SDLC&direction=prev&oldid=19192
+- [citation] shapeguard | https://www.npmjs.com/package/shapeguard
+- [citation] Understanding Front-end and Back-end Validations in Drupal | https://www.qed42.com/insights/understanding-front-end-and-back-end-validations-in-drupal
+- [citation] Validation middleware | https://expressify.ambassify.eu/docs/middleware-validation/#main
+- [citation] Validation Schemas | janishar/nodejs-backend-architecture-typescript | DeepWiki | https://deepwiki.com/janishar/nodejs-backend-architecture-typescript/5.1-validation-schemas
+- [citation] Validations In Full Stack Development - Squash Apps | http://squashapps.com/blog/validations-full-stack-development/#content
+- [citation] Validator class | https://pub.dev/documentation/flint_dart/latest/flint_dart/Validator-class.html
+- [citation] Virtual Code Review | https://codescene.io/projects/168/jobs/4829668/results/code/hotspots/biomarkers?name=Mvc%2Fsrc%2FMicrosoft.AspNetCore.Mvc.Razor%2FRazorPage.cs
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 77b9f28b-bb96-4fb9-a558-8270e9fc21ab

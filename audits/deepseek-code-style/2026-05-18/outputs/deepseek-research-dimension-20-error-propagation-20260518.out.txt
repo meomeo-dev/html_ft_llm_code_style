@@ -1,0 +1,227 @@
+回复ID: ErrorPropagationAppearance-20260518-001
+
+---
+
+## 第 20 维度审查报告：错误传播策略 (Error Propagation Strategy)
+
+### 1. 主流语言风格指南对错误传播视觉形态的描述
+
+错误传播在代码屏幕上的视觉形态，在不同语言的风格指南中有显著差异，但核心可观察信号是共通的。
+
+**Go 风格指南中的错误传播可视信号。** Go 生态中错误传播最核心的视觉锚点是 `if err != nil` 语句块。风格指南指出，每个可能失败的调用后应立即出现该检查，形成贯穿调用链的重复性节奏[reference:0]。返回的错误不应"裸传"——即 `return err` 不加任何包装——而应使用 `fmt.Errorf("context: %w", err)` 在每层追加前缀，这些前缀在屏幕上层层堆叠，形成视觉上的"前缀链"[reference:1]。Uber/Facebook 内部的 Error Wrapping 标准中明确描述了当调用深度超过 5 层时，重复的 `if err != nil { return fmt.Errorf(...) }` 所造成的"逻辑噪声"现象——这些噪声远超业务逻辑本身的视觉比重[reference:2]。GitLab 的 Gitaly 风格指南要求使用 `%w` 包装错误、保留原始错误链，在代码中以显式的 `fmt.Errorf` 调用呈现可观察的视觉标记[reference:3]。
+
+**Rust 风格指南中的错误传播可视信号。** Rust 的错误传播通过 `?` 运算符实现——这是单个字符即可表示"传播错误"的视觉记号。RFC 文档描述该运算符"通过减少视觉干扰来使错误处理变得更加愉快"，它将原本需要几行 match/return 样板代码的错误传播压缩为一个视觉符号[reference:4]。典型 Rust 代码中，一连串函数调用的末尾频繁出现 `?`，形成点状节奏；同时 `anyhow::Context` trait 的 `.context("...")?` 调用则在 `?` 前附加上下文字符串，使得错误包装在屏幕上以链式调用的形态出现[reference:5]。
+
+**JavaScript 风格指南中的错误传播可视信号。** 在 JavaScript/TypeScript 中，错误传播的视觉形态主要通过 `try/catch` 块和 `throw` 语句展现。异步代码中使用 `await` + `try/catch` 组合时，`catch` 块内的 `throw` 或 `rethrow` 是视觉上最明显的传播信号。研究发现 `await` 能更好地保留调用链信息，使得堆栈追踪在屏幕上的展示更完整[reference:6]。
+
+**Java 风格指南中的错误传播可视信号。** Java 的 checked exception 机制使得 `throws` 声明和 `try/catch` 块成为错误传播的视觉标记。方法签名中的 `throws` 子句在屏幕上是可见的传播声明；`catch` 块中的 `throw new XxxException(e)` 则是对异常进行包装和重新抛出的视觉信号[reference:7]。
+
+**视觉层面的共同要素。** 综合各语言，错误传播在屏幕上的可观察形态包括：错误检查块的密度和规律性、是否出现包装/添加上下文的调用、错误流向的方向性（向上传播 vs 被吞掉）、以及包装前缀的层叠深度。
+
+---
+
+### 2. Linters 和静态分析中关于错误传播模式的规则
+
+静态分析工具对错误传播的检测主要集中在三类视觉反模式（anti-pattern）上。
+
+**日志后抛出/重复记录的规则。** 多条资料明确指出"记录日志后然后抛出异常是不鼓励的，因为它往往会导致冗余日志记录"[reference:8]。SonarQube 在 Java 异常方面的规则体系中包含了这一检测——当一个 `catch` 块既包含 `log.error(...)` 又包含 `throw` 时，会产生"重复日志记录"或"冗余异常处理"的告警，而这恰是当前量表第 2 档所描述的外观模式[reference:9]。
+
+**重复错误检查的规则。** Go 生态的 golangci-lint 提供了 `errcheck` linter，用于检测调用后未检查错误的情况——也就是量表中第 0 档的行为[reference:10]。团队编码规范中普遍禁止"泛滥的 `if err != nil { return err }`"，并要求统一使用 `%w` 包装，因为这会导致错误链信息丢失[reference:11]。
+
+**错误包装上下文字符串的规则。** 推荐的最佳实践中提到，每个中间层都执行 `return fmt.Errorf("step X failed: %w", err)` 却不附加任何结构化字段，是一种"封装黑洞"——应该在边界层做一次语义化包装，内部应透传原始 error 并通过结构体字段补充上下文[reference:12]。这直接关联到量表中第 4 档和第 5 档的视觉边界。
+
+---
+
+### 3. 各语言中错误传播在屏幕上的典型外观差异
+
+不同语言的错误传播在屏幕上的视觉密度和形态有本质差异，本维度需要做到跨语言适用。
+
+| 语言 | 低传播信号 | 高传播信号 | 视觉特征 |
+|------|-----------|-----------|---------|
+| **Go** | 看不到 `if err != nil` 或只有裸 `return err` | 每层 `fmt.Errorf("ctx: %w", err)` 包装，前缀链 | 多行 if-err 区块的垂直节奏 |
+| **Rust** | 结果值被 `unwrap()` 直接使用 | 函数调用链末尾密集出现 `?` 和 `.context()` | 单字符 `?` 的点状节奏，链式调用中的上下文字符串 |
+| **JavaScript** | 缺少 `try/catch` 或空 `catch` 块 | `catch` 块中有 `throw new Error(...)` 包装 | try/catch 块的嵌套深度，堆栈信息的可读性 |
+| **Java** | 只有 `throws` 声明但无实际 catch 处理 | try/catch 中有 `throw new XxxException(e)` 包装 | 方法签名 throws 声明的密度，catch 块内的重新抛出 |
+
+---
+
+### 4. 反例分析：集中顶层处理 vs 中间层包装
+
+**关键边界：错误在何处被处理（停止传播）vs 在何处被包装（继续传播）。** 量表的视觉维度关注的不是"正确性"，而是"传播在屏幕上的可见程度"。
+
+**需要集中顶层处理的场景**包括：HTTP handler、CLI 命令入口、事件处理器等边界层。在这些场景中，所有错误汇聚到一个统一的错误处理函数，转换为用户响应。代码外观上，这些位置出现集中的 `try/catch` 或错误处理逻辑，而内部代码中错误传播的视觉信号较弱——因为中间层透传错误，不做重复包装[reference:13]。
+
+**需要中间层包装的场景**包括：跨模块边界的调用、需要附加业务语义的上下文、需要保留调用链信息便于排错的位置。代码外观上，这些位置出现 `fmt.Errorf`、`.context()`、`throw new` 等包装语句，在屏幕上是可见的传播节点[reference:14]。
+
+**本维度的边界**应该是：量表的 0-5 衡量的是"错误传播在代码中的视觉可见密度和规律性"，而不是"架构设计是否合理"。第 5 档如果写成"中间层只做包装，所有错误汇聚到顶层"，则是在描述一种设计模式，而非视觉特征。
+
+具体反例：
+- **第 5 档的误导风险**：有经验的团队会采用"边界层统一处理 + 中间层透传"模式，此时中间层的错误传播视觉信号反而是稀疏的。如果第 5 档描述"中间层只做错误包装和传递"，这在屏幕上对应的是高密度的包装语句；但如果团队使用结构体字段而非字符串拼接来传递上下文，屏幕上的视觉密度又会降低。因此第 5 档描述的并非单纯的视觉外观，而是混入了设计决策。
+- **第 2 档的混淆**：`log + throw` 是一种具体的反模式，但它既是日志策略问题，也是传播策略问题。视觉上它确实表现为"同一错误既被记录又被向上传递"，但这种外观只是该模式的一种表现形式，与"传播密度"的单调递增关系不够紧密。
+
+---
+
+### 5. 汇总：资料对"代码长什么样"的启发
+
+综合以上资料，错误传播在屏幕上的视觉形态可以归纳为以下几个层级：
+
+- **传播的缺失（第 0 档附近）**：屏幕上完全看不到错误处理代码，调用结果被直接使用——Go 中缺失 `if err != nil`、Rust 中直接 `unwrap()`、JavaScript 中缺少 `catch`。
+- **传播的孤立（第 1 档附近）**：错误处理只出现在程序入口处（如 `main()` 或顶层 handler），内部函数调用处没有传播痕迹——Go 中表现为孤立的 `log.Fatal`、Rust 中表现为孤立的 `expect()`。
+- **传播的稀疏出现（第 2 档附近）**：错误传播代码在屏幕上稀疏分布，但同一错误既被记录又被向上传递，形成 `log.Print + return err` 或 `console.error + throw` 的重复视觉模式。
+- **传播的有规律密集出现（第 3 档附近）**：几乎每个函数调用后都有错误检查，形成视觉上的"节奏"——Go 中每 3-5 行一个 `if err != nil` 区块，Rust 中几乎每行都有 `?`。
+- **传播附带层层上下文（第 4 档附近）**：传播语句不仅密集，还附带了层层前缀/后缀的上下文字符串——Go 中 `fmt.Errorf("step1: step2: step3: %w", err)` 的前缀链，Rust 中 `.context("...")` 的链式调用。
+- **传播与处理的分离（第 5 档附近）**：中间层只传播、不处理；所有错误最终汇聚到顶层统一处理函数。视觉上：中间层代码中包装语句保持节奏，但没有"处理"语句；顶层集中出现处理逻辑。
+
+**核心启发**：量表应聚焦于"传播信号在屏幕上的可见密度和规律性"，而非传播的正确性、日志策略的优劣、或架构设计模式的评判。
+
+---
+
+### 6. 当前 0-5 档文案评估
+
+逐档评价：
+
+| 档位 | 评价 | 问题 |
+|------|------|------|
+| 0 | ✅ 准确描述了传播信号完全缺失的外观 | 无 |
+| 1 | ✅ 描述了错误处理孤立于入口处的外观 | 无 |
+| 2 | ⚠️ "稀疏分布"与"同一错误既被记录又被向上传递"混合了密度和日志策略两个维度 | 日志策略不应独立构成一档 |
+| 3 | ✅ 描述了有规律密集检查的视觉节奏 | 可更精确地描述"传播"而非"检查" |
+| 4 | ⚠️ "层层前缀堆叠"是视觉特征，但"统一包裹进带上下文字符串的格式"暗示了规范约束 | 措辞需要更纯粹地描述外观 |
+| 5 | ❌ "中间层只做包装和传递"描述的是设计模式而非外观；某些架构设计下第 5 档的外观可能比第 4 档更"稀疏"（中间层透传而非包装） | 混淆了设计模式与视觉外观 |
+
+**总体判断**：
+- **单调性**：整体方向单调递增，但第 4→5 的跃迁不纯粹是视觉密度递增，存在设计模式维度的干扰。
+- **概念互斥性**：第 2 档混入了日志策略（"既被记录又被向上传递"），与第 3 档的纯传播密度之间存在概念交叉。第 4 档和第 5 档的边界也不够清晰——两者都涉及错误包装，但一个是"层层前缀"的视觉密度问题，一个是"处理汇聚位置"的架构问题。
+- **肉眼可观察性**：0-4 档基本可被肉眼观察到，但第 5 档的"顶层统一处理函数"需要阅读者理解代码的整体架构，超出了纯肉眼扫描的范围。
+
+---
+
+### 7. 仅限第 20 维度的修改建议
+
+建议重新聚焦于错误传播在屏幕上的**视觉信号密度**，从"完全看不到传播信号"到"每层都有丰富的传播信号"，形成真正的单调递增。
+
+**替代文案（6 条）** ：
+
+- **0**: 调用可能失败的方法后，下一行直接使用结果，看不到任何错误变量或 catch 代码块
+- **1**: 只在程序入口附近出现孤立的错误处理语句，内部函数调用处毫无错误传播的痕迹
+- **2**: 代码中偶尔出现错误检查与向上返回的配对，但出现频率低，间隔不规则，传播信号稀疏
+- **3**: 几乎每个函数调用后都紧接一个错误检查区块，形成重复的视觉节奏，传播方向一目了然
+- **4**: 每个返回错误的位置都附带上下文字符串前缀，多个调用层级的前缀在视觉上层层堆叠
+- **5**: 错误传播代码的视觉密度达到峰值：中间层每处调用都在做包装与传递，几乎所有函数签名都包含错误返回通道
+
+**修改要点说明**：
+1. 第 2 档去掉了"日志后再抛出"的日志策略干扰，改为纯密度描述："偶尔出现、间隔不规则、稀疏"。
+2. 第 3 档保持"有规律的视觉节奏"，同时强调"传播方向一目了然"。
+3. 第 4 档聚焦于"层层前缀堆叠"这一纯粹视觉特征，去掉"统一包裹进格式"的规范暗示。
+4. 第 5 档重新定义为视觉密度的峰值状态——"中间层每处调用都在做包装与传递，几乎所有函数签名都包含错误返回通道"——这是纯粹的外观描述，不涉及架构优劣判断。
+5. 整体形成了一个单调递增、互斥、且每档均可被肉眼观察的量表："完全看不见" → "只在入口看见" → "稀疏出现" → "有规律密集出现" → "密集且附前缀" → "无处不在的传播通道"。
+
+Citations:
+- [reference:0] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=30
+  candidate 1: [SOLVED] How to debug java source code when I implement a custom Detector for Lint? - DeveloperLoad | https://www.developerload.com/how-to-debug-java-source-code-when-i-implement-a-custom-detector-for-lint
+  candidate 2: **发散创新：Go语言中基于上下文的优雅错误处理机制设计与实战**在现代后端开发中，**错误处理**早已不是简单 | https://blog.csdn.net/qq_59616519/article/details/159707561
+  candidate 3: 🔒 Centralize HTTP Error Handling in Go | https://tsecurity.de/de/2769377/IT+Programmierung/Centralize+HTTP+Error+Handling+in+Go/de/155878/IT+Betriebssysteme/Linux+Tipps/
+  candidate 4: 🔒 Mastering Error Handling in Go: A Pragmatic Approach | https://tsecurity.de/de/2605012/IT+Programmierung/Mastering+Error+Handling+in+Go%3A+A+Pragmatic+Approach/
+  candidate 5: 15-panic-defer-recover | https://pkg.go.dev/github.com/mateusfigmelo/go_by_examples@v0.0.0-20250503213445-4ee055645bcd/examples/15-panic-defer-recover
+  ... 25 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=8
+  candidate 1: 【Go高级工程师私藏手册】：圆领卫衣模式下的错误码治理与可观测性嵌入 | https://datasea.cn/go0416594333.html
+  candidate 2: 调用链较深时：错误日志在最低层还是调用层打印？ | https://blog.csdn.net/sinat_41883985/article/details/151150145
+  candidate 3: 异常处理规范 | https://cloud.tencent.cn/developer/article/2364390
+  candidate 4: 在Java中如何统一处理异常_Java异常封装设计解析 | https://www.php.cn/faq/2054695.html
+  candidate 5: Designing a Robust Global Exception Handling Strategy in ASP.NET Core | https://www.c-sharpcorner.com/article/designing-a-robust-global-exception-handling-strategy-in-asp-net-core/
+  ... 3 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=8
+  candidate 1: 【Go高级工程师私藏手册】：圆领卫衣模式下的错误码治理与可观测性嵌入 | https://datasea.cn/go0416594333.html
+  candidate 2: 调用链较深时：错误日志在最低层还是调用层打印？ | https://blog.csdn.net/sinat_41883985/article/details/151150145
+  candidate 3: 异常处理规范 | https://cloud.tencent.cn/developer/article/2364390
+  candidate 4: 在Java中如何统一处理异常_Java异常封装设计解析 | https://www.php.cn/faq/2054695.html
+  candidate 5: Designing a Robust Global Exception Handling Strategy in ASP.NET Core | https://www.c-sharpcorner.com/article/designing-a-robust-global-exception-handling-strategy-in-asp-net-core/
+  ... 3 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:14] Search result set | query=集中 顶层 错误 处理 中间层 包装 最佳 实践 边界 | candidates=44
+  candidate 1: ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+  candidate 2: [学习笔记]Thinking in Java (the 2nd edition) Study Note (3) | https://ltesting.net/html/97/n-110297.html
+  candidate 3: [PDF] A Visual Comparison of Silent Error Propagation. | Semantic Scholar | https://www.semanticscholar.org/paper/A-Visual-Comparison-of-Silent-Error-Propagation.-Li-Menon/1a0a5d6e577a124a5d408c5447da7b2e60da8ce0
+  candidate 4: 5.4 lint 消息 | https://docs.oracle.com/cd/E71940_01/html/E71950/bjaid.html
+  candidate 5: 疯狂Java讲义-异常处理 | https://blog.csdn.net/u011714517/article/details/103847207
+  ... 39 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 7195a2f0-794d-4fac-af2b-0c022cf5c2ee

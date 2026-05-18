@@ -1,0 +1,275 @@
+回复ID: InterfaceAbstractionScaleReview-20260518-001
+
+## 摘要
+
+**审查结论**：当前维度名称“接口与抽象依赖程度”基本准确但可优化；0–5 档大体在同一视觉维度上单调递进，但存在术语偏差、跨维度暗示和外观可观察性不足的问题。需要修正以严格聚焦于肉眼可见的代码外观，排除对架构质量的隐性评价。搜索了多个公开资料后，确认本次审查基于搜索结果和公开资料来源。
+
+---
+
+## 一、维度名称审查
+
+### 1.1 总体判断
+
+**当前名称：“接口与抽象依赖程度 (Interface & Abstraction Reliance)”**
+
+**审查结论**：方向正确但不够精准。名称中的“依赖” (Reliance) 一词容易与依赖注入 (Dependency Injection)、包依赖 (Package Dependency) 或 DIP (依赖反转原则) 产生混淆。在公开资料中，更通用的表述是“抽象度 (Abstractness)”或“对抽象的依赖程度”[reference:0]。
+
+### 1.2 公开资料佐证
+
+- Robert C. Martin 提出的 **Stable Abstractions Principle (SAP)** 中定义了 **Abstractness (A)** 指标：包中抽象类与接口数量占所有类型数量的比值，范围为 0 到 1[reference:1]。这与量表 0–5 档描述的概念高度一致。
+- IBM Rational Software Architect 将 **Abstractness** 列为正式的代码质量指标之一[reference:2]。
+- 学术文献和开源工具（如 JDepend）也使用“抽象度”这一术语来衡量接口与抽象类的使用程度[reference:3]。
+
+### 1.3 命名建议
+
+| 选项 | 名称 | 说明 |
+|------|------|------|
+| A | `接口与抽象可见度 (Interface & Abstract Visibility)` | 强调“肉眼可见”，偏外观维度 |
+| B | `抽象度 (Abstractness)` | 与 Martin / JDepend 等公开指标对齐，简洁有力 |
+| C | `接口/抽象使用程度 (Interface/Abstract Usage Level)` | 偏中性描述 |
+
+**建议**：选择 B（`抽象度 (Abstractness)`），理由是与现有行业指标术语一致，且没有任何隐含评价色彩。
+
+---
+
+## 二、0–5 档单调递进性审查
+
+### 2.1 逐档分析
+
+| 档位 | 当前描述 | 核心外观信号 | 审查结论 |
+|------|----------|-------------|----------|
+| 0 | 只有具体类 class，看不到 interface 或 abstract 关键词 | ✅ 纯外观，直接可观察 | 无问题 |
+| 1 | 少量 interface 定义只出现在个别扩展点、回调或适配器附近 | ✅ 外观描述准确 | 无问题 |
+| 2 | 多数主要服务存在接口/实现文件对，如 `IXxx`/`XxxImpl` 或 `Xxx`/`XxxDefault` | ✅ 命名模式和文件对可直接观察 | 术语“多数”可更精确（见下文） |
+| 3 | 方法参数、返回值和字段类型大多声明为接口或抽象类，而非具体类名 | ✅ 核心外观维度 | 无问题 |
+| 4 | 公开 API 通过 interface 暴露，具体实现类只在内部包/私有类/装配处可见 | ✅ 外观描述准确 | 无问题 |
+| 5 | 业务代码中引用类型几乎都是接口或抽象类 | ✅ 最高档位的外观描述正确 | 需确认“几乎都是”是否足够区分档位 4 |
+
+### 2.2 递进逻辑
+
+档位 0 → 5 的递进路径是：
+
+```
+代码中抽象类型出现的广度与密度递增
+0: 不可见 → 1: 零星可见 → 2: 成对可见 → 3: 声明可见 → 4: API 层面可见 → 5: 全局可见
+```
+
+这是一个**单一视觉维度上的单调递进**。从 Baeldung 的教程案例中可以清晰地看到这一递进路径：从直接使用具体类（档位 0），到引入抽象类（档位 1/2），再到使用多个接口（档位 4/5）[reference:4]。
+
+**递进性审查结论**：✅ 通过。六个档位在同一视觉维度上从低到高递进。
+
+---
+
+## 三、跨维度内容与误导风险审查
+
+### 3.1 问题识别
+
+以下是搜索中确认的需警惕的跨维度内容：
+
+#### 问题 1：`Interface‑pollution`（接口污染）属于过度抽象维度，而非依赖程度
+
+**公开资料**：Javarush 课程专门将“接口污染”（Interface‑pollution）定义为反模式：项目中存在过多接口，没有真正解耦、没有简化测试、纯粹“以防万一”的抽象层[reference:5][reference:6]。
+
+**与本维度的关系**：本维度量表从档位 2 到 5 描述了越来越高的接口使用程度，但如果代码达到档位 5 且同时出现接口污染的特征（如每个 struct 一个接口、仅有一个实现的接口等），这实际上是**过度抽象**问题，而不是“更高的依赖程度”问题。过度工程（Overengineering）被明确定义为创建不必要的抽象层，是一个独立的代码异味维度[reference:7]。
+
+**结论**：当前量表不会直接引入接口污染，但档位 5 的描述（“几乎都是接口或抽象类”）的极值点在理论上与过度抽象的边界模糊，需要在量表说明中明确区分。
+
+#### 问题 2：深层抽象层次 vs 高依赖程度
+
+**公开资料**：从 Software Engineering Stack Exchange 的讨论来看，深层抽象层次是一个**架构复杂度**维度的问题，而非纯粹的外观/依赖维度[reference:8]。Nearform 的文章也指出创建抽象会增加代码复杂度[reference:9]。
+
+**结论**：当前量表未涉及“层次深度”或“继承层级数”，不需要修改。但需确保不会在未来修改中把“接口继承层级深度”误加入量表。
+
+#### 问题 3：泛型接口的复杂度
+
+**公开资料**：泛型接口（generic interface）是类型参数化机制，它确实增加了视觉复杂度。但泛型本身属于语言机制，增加泛型并不必然增加“接口依赖程度”——例如 `List<String>` 使用了泛型类和接口，但程度并不高于非泛型接口的使用。
+
+**结论**：当前量表未涉及泛型接口，保持即可。不建议将泛型接口的可见度单独作为档位描述。
+
+#### 问题 4：命名模式的双刃剑
+
+档位 2 提到 `IXxx`/`XxxImpl` 命名模式。这是外观层面的有效信号：Microsoft 官方框架设计指南明确要求接口以 `I` 为前缀，并确保类/接口对名称仅差 `I` 前缀。Java 生态则常用 `Impl` 后缀标记实现类[reference:12]。
+
+但需要注意：命名模式本身也受语言约定影响，Java 标准库不以 `I` 为前缀（如 `List`、`Map`），因此外观观察需考虑语言生态差异。当前描述同时覆盖了两种模式，可以接受。
+
+### 3.2 跨维度风险总结
+
+| 风险项 | 属于哪个维度 | 是否侵入本量表 | 处理建议 |
+|--------|-------------|---------------|---------|
+| 接口污染 / 过度工程 | 过度抽象 / 代码异味 | 档位 5 边界模糊 | 在量表说明中强调“本维度不判断抽象是否合理，仅度量可见度” |
+| 深层抽象层次 | 架构复杂度 | 未侵入 | 无需修改 |
+| 泛型接口 | 语言机制 / 复杂度 | 未侵入 | 无需修改 |
+| 封装质量 / 可测试性 | 架构质量 | 未侵入 | 无需修改 |
+| SOLID 原则符合度 | 设计质量 | 未侵入 | 无需修改 |
+
+---
+
+## 四、替代文案（6 条）
+
+基于以上审查，以下 6 条替代文案全部聚焦于**肉眼可直接观察的代码外观**，不涉及架构质量、过度抽象评价或语言偏好：
+
+| 档位 | 替代文案 | 外观可观察性说明 |
+|------|----------|-----------------|
+| 0 | **全具体类（All Concrete）**：代码中仅出现 `class` 声明和使用，搜索不到 `interface` 或 `abstract` 关键字；所有变量类型、参数类型、返回类型均为具体类名。 | ✅ 直接搜索关键字即可确认 |
+| 1 | **偶现抽象（Sporadic Abstraction）**：`interface` 或 `abstract class` 关键词零星出现，通常限于回调、适配器或工具类的少数几个文件，不形成命名模式对。 | ✅ 全局搜索 keyword 并数文件数 |
+| 2 | **接口/实现对出现（Interface‑Implementation Pairs）**：主要业务服务出现成对的接口与实现文件，如 `IXxx` / `Xxx`（或 `Xxx` / `XxxImpl`）；IDE 中“查找实现 (Find Implementations)”返回有意义的跳转目标。 | ✅ 文件命名模式直接可见；IDE 功能可辅助 |
+| 3 | **声明级抽象（Declaration‑Level Abstraction）**：方法签名中的参数类型、返回值类型、字段/属性类型大量声明为接口或抽象类，而非具体类名；一眼扫过方法签名即可看到 `I` 前缀或 `interface` 类型名。 | ✅ 方法签名和字段声明直接可读 |
+| 4 | **公开 API 抽象隔离（Public‑API Abstraction）**：公共模块对外暴露的类型几乎全是 `interface`（或 `abstract class`），具体实现类的声明仅在内部包或 `internal`/`private` 可见；查看包导出列表即可确认。 | ✅ 查看 `public` 类名 vs `internal` 类名即可 |
+| 5 | **全局引用抽象化（Pervasive Abstraction）**：除对象构造点（`new` 关键字）和依赖注入配置外，业务代码中引用类型（变量、参数、返回、字段）几乎均为接口或抽象类型；`new` 后紧跟的变量类型仍是抽象类型。 | ✅ 搜索 `new` 出现位置，查看其赋值目标类型 |
+
+### 替代文案与原文案对照
+
+| 档位 | 原描述 | 替代描述 | 主要变更 |
+|------|--------|---------|---------|
+| 0 | 只有具体类 class…… | 全具体类（All Concrete） | 增加“全局搜索不可见 interface/abstract”的可操作指令 |
+| 1 | 少量 interface…… | 偶现抽象（Sporadic Abstraction） | 增加“不形成命名模式对”以区分档位 2 |
+| 2 | 多数主要服务存在…… | 接口/实现对出现（Interface‑Implementation Pairs） | 增加英文术语标签，增加 IDE 辅助判断提示 |
+| 3 | 方法参数……声明为接口 | 声明级抽象（Declaration‑Level Abstraction） | 增加英文术语标签，“一眼扫过”强调即时可观察性 |
+| 4 | 公开 API 通过 interface 暴露…… | 公开 API 抽象隔离（Public‑API Abstraction） | 增加“查看包导出列表”的可操作指令 |
+| 5 | 业务代码中引用类型几乎都是…… | 全局引用抽象化（Pervasive Abstraction） | 增加“搜索 `new` 出现位置”可操作指令 |
+
+---
+
+## 五、建议来源声明
+
+### 5.1 基于公开资料的建议
+
+- 使用 **Abstractness (A)** 指标作为维度理论基础 — 来自 CppDepend / IBM Rational Software Architect / JDepend 关于 Abstractness 指标的公开文档[reference:13][reference:14][reference:15]
+- 识别命名模式 `IXxx` / `XxxImpl` 为外观信号 — 来自 Microsoft Framework Design Guidelines和 Code Review Stack Exchange[reference:18]
+- 区分接口污染（过度抽象）与依赖程度 — 来自 Javarush 反模式课程[reference:19]和 dev.to 过度工程代码异味文章[reference:20]
+- 从具体类到接口的递进路径 — 来自 Baeldung “Program to Interface”教程[reference:21]
+- 仅有一个实现的接口是代码异味 — 来自 Stack Overflow 讨论[reference:22]
+- “依赖反转原则 (DIP)”与“依赖抽象而非具体” — 来自 SE450 课程讲义[reference:23]
+
+### 5.2 基于推断的建议
+
+- 档位 2 中“多数”到“主要”的词义微调：基于量表内部一致性推断，无直接外部资料佐证
+- 为每档增加英文术语标签（如“All Concrete”“Sporadic Abstraction”等）：基于国际化学术文献的命名惯例推断
+- 增加 IDE 辅助判断提示（如“查找实现”功能）：基于现代开发工具通用功能推断
+- 将“几乎都是”增强为“搜索 `new` 出现位置”的操作性描述：基于代码外观审查的实践经验推断
+
+---
+
+## 六、公开资料来源清单
+
+本次审查至少参考了以下公开来源：
+
+1. **CppDepend** — “The Key to Successful OOP C++ Project: Stable Abstractions”，Abstractness 指标定义[reference:24]
+2. **Microsoft Learn** — “类、结构和接口的名称”，Framework Design Guidelines，接口命名前缀 `I` 约定
+3. **Microsoft Learn** — “Names of Classes, Structs, and Interfaces”，类/接口对命名规范
+4. **Baeldung** — “What Does It Mean to Program to Interfaces?”，从具体类到抽象类到接口的递进示例[reference:27]
+5. **Javarush** — “Antipatterns — interface‑pollution”，接口污染反模式定义[reference:28]
+6. **dev.to** — “Code Smell 273 - Overengineering”，过度工程与不必要抽象层[reference:29]
+7. **IBM** — Rational Software Architect Abstractness 指标文档[reference:30]
+8. **Stack Overflow** — “OO Design Quality Metrics”，Abstractness 指标定义[reference:31]
+9. **Code Review Stack Exchange** — `Impl` 后缀命名约定讨论[reference:32]
+10. **DePaul University SE450** — 依赖反转原则与接口隔离原则讲义[reference:33]
+
+---
+
+**审查总结**：当前维度方向正确，0–5 档在同一视觉维度上单调递进。主要改进空间在于：(1) 名称对齐行业术语“抽象度 (Abstractness)”；(2) 每档描述增强可操作性（增加具体的观察指令）；(3) 明确排除过度抽象维度，避免极值档位产生跨维度歧义；(4) 统一使用英文术语标签以利于国际化对齐。
+
+Citations:
+- [reference:0] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=32
+  candidate 1: 【Go代码可维护性量化体系】：用5个AST衍生指标（Cyclomatic Complexity、Fan-out、Interface Coupling等）构建技术债看板 | https://datasea.cn/go0403575627.html
+  candidate 2: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  candidate 3: 代码大全 - 第6章 可以工作的类 | https://www.cnblogs.com/sunada2005/p/14651092.html
+  candidate 4: 读《设计模式之美》 · 语雀 | https://www.yuque.com/1ncounter/courtyard/ulkmgl?language=en-us
+  candidate 5: 欢迎使用CSDN-markdown编辑器 | https://blog.csdn.net/miao5014/article/details/44345685
+  ... 27 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Structured reference | TOOL_OPEN#21 | no precise page mapping recovered in text output
+- [reference:2] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=27
+  candidate 1: [BLUEJ-76] Object Inspector should show abstract state, not concrete state, of instances of ArrayList and other library classes (#76) · Issues · BlueJ / bjgf · GitLab | https://gitlab.bluej.org/bluej/bjgf/-/work_items/76#notes
+  candidate 2: 《代码整洁之道》：5大基本要点-华为开发者话题 | 华为开发者联盟 | https://developer.huawei.com/consumer/cn/forum/topic/0201183796718930198
+  candidate 3: 《架构整洁之道》第 11 章 DIP：依赖反转原则 | https://cloud.tencent.com.cn/developer/article/2291869
+  candidate 4: 【软件重构】【代码坏味道】详解滥用类的继承体系 | https://bbs.huaweicloud.com/blogs/378548
+  candidate 5: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=27
+  candidate 1: [BLUEJ-76] Object Inspector should show abstract state, not concrete state, of instances of ArrayList and other library classes (#76) · Issues · BlueJ / bjgf · GitLab | https://gitlab.bluej.org/bluej/bjgf/-/work_items/76#notes
+  candidate 2: 《代码整洁之道》：5大基本要点-华为开发者话题 | 华为开发者联盟 | https://developer.huawei.com/consumer/cn/forum/topic/0201183796718930198
+  candidate 3: 《架构整洁之道》第 11 章 DIP：依赖反转原则 | https://cloud.tencent.com.cn/developer/article/2291869
+  candidate 4: 【软件重构】【代码坏味道】详解滥用类的继承体系 | https://bbs.huaweicloud.com/blogs/378548
+  candidate 5: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Structured reference | TOOL_OPEN#19 | no precise page mapping recovered in text output
+- [reference:5] Exact page | Course Go SELF - Lecture: Antipatterns — interface‑pollution | https://javarush.com/en/quests/lectures/en.javarush.golang.core.lecture.level37.lecture04?post=full#discussion
+- [reference:6] Structured reference | TOOL_OPEN#22 | no precise page mapping recovered in text output
+- [reference:7] Exact page | Code Smell 273 - Overengineering | https://dev.to/mcsee/code-smell-273-overengineering-2b0a
+- [reference:8] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=20
+  candidate 1: “科技公司的核心代码库与安全门禁” 的故事 | https://juejin.cn/post/7523817032891973668
+  candidate 2: (转）abstarct & interface | https://blog.csdn.net/yueyue369/article/details/6268629
+  candidate 3: 抽象类和接口的比较 看过的比较好的一篇文章 | https://blog.csdn.net/shimeile19881217/article/details/2192968
+  candidate 4: 从设计理念层面看abstract class和interface | http://bbs.itheima.com/forum.php?mod=viewthread&tid=158994&page=1&authorid=141960
+  candidate 5: Design/Patterns - should I use interfaces or abstract classes? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_nopic_2022-07/questions/31090152/design-patterns-should-i-use-interfaces-or-abstract-classes
+  ... 15 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=45
+  candidate 1: “警惕！过度抽象的代码库，是开发者看不见的隐形噩梦” | https://news.qq.com/rain/a/20241231A08LLD00
+  candidate 2: [PDF] CRScore: Grounding Automated Evaluation of Code Review Comments in Code Claims and Smells | Semantic Scholar | https://www.semanticscholar.org/paper/CRScore%3A-Grounding-Automated-Evaluation-of-Code-in-Naik-Alenius/3e619426abe1392eb17ccd2ed92191ca57d00fcd
+  candidate 3: 【抽象那些事】不必要的抽象 | https://cloud.tencent.com.cn/developer/article/1136467?from=15425
+  candidate 4: 【软件重构】【代码坏味道】详解滥用类的继承体系 | https://bbs.huaweicloud.com/blogs/378548
+  candidate 5: 9 Software Architecture Metrics for Sniffing Out Issues | https://www.beningo.com/9-software-architecture-metrics-for-sniffing-out-issues/
+  ... 40 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Structured reference | TOOL_OPEN#9 | no precise page mapping recovered in text output
+- [reference:11] Structured reference | TOOL_OPEN#10 | no precise page mapping recovered in text output
+- [reference:12] Exact page | Revision 0ba1d629-b6c0-4c5c-a582-272b51d4e74a | https://codereview.stackexchange.com/revisions/0ba1d629-b6c0-4c5c-a582-272b51d4e74a/view-source
+- [reference:13] Structured reference | TOOL_OPEN#21 | no precise page mapping recovered in text output
+- [reference:14] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=27
+  candidate 1: [BLUEJ-76] Object Inspector should show abstract state, not concrete state, of instances of ArrayList and other library classes (#76) · Issues · BlueJ / bjgf · GitLab | https://gitlab.bluej.org/bluej/bjgf/-/work_items/76#notes
+  candidate 2: 《代码整洁之道》：5大基本要点-华为开发者话题 | 华为开发者联盟 | https://developer.huawei.com/consumer/cn/forum/topic/0201183796718930198
+  candidate 3: 《架构整洁之道》第 11 章 DIP：依赖反转原则 | https://cloud.tencent.com.cn/developer/article/2291869
+  candidate 4: 【软件重构】【代码坏味道】详解滥用类的继承体系 | https://bbs.huaweicloud.com/blogs/378548
+  candidate 5: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:15] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=27
+  candidate 1: [BLUEJ-76] Object Inspector should show abstract state, not concrete state, of instances of ArrayList and other library classes (#76) · Issues · BlueJ / bjgf · GitLab | https://gitlab.bluej.org/bluej/bjgf/-/work_items/76#notes
+  candidate 2: 《代码整洁之道》：5大基本要点-华为开发者话题 | 华为开发者联盟 | https://developer.huawei.com/consumer/cn/forum/topic/0201183796718930198
+  candidate 3: 《架构整洁之道》第 11 章 DIP：依赖反转原则 | https://cloud.tencent.com.cn/developer/article/2291869
+  candidate 4: 【软件重构】【代码坏味道】详解滥用类的继承体系 | https://bbs.huaweicloud.com/blogs/378548
+  candidate 5: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Structured reference | TOOL_OPEN#9 | no precise page mapping recovered in text output
+- [reference:17] Structured reference | TOOL_OPEN#10 | no precise page mapping recovered in text output
+- [reference:18] Exact page | Revision 0ba1d629-b6c0-4c5c-a582-272b51d4e74a | https://codereview.stackexchange.com/revisions/0ba1d629-b6c0-4c5c-a582-272b51d4e74a/view-source
+- [reference:19] Exact page | Course Go SELF - Lecture: Antipatterns — interface‑pollution | https://javarush.com/en/quests/lectures/en.javarush.golang.core.lecture.level37.lecture04?post=full#discussion
+- [reference:20] Exact page | Code Smell 273 - Overengineering | https://dev.to/mcsee/code-smell-273-overengineering-2b0a
+- [reference:21] Structured reference | TOOL_OPEN#19 | no precise page mapping recovered in text output
+- [reference:22] Structured reference | TOOL_OPEN#22 | no precise page mapping recovered in text output
+- [reference:23] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=32
+  candidate 1: 【Go代码可维护性量化体系】：用5个AST衍生指标（Cyclomatic Complexity、Fan-out、Interface Coupling等）构建技术债看板 | https://datasea.cn/go0403575627.html
+  candidate 2: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  candidate 3: 代码大全 - 第6章 可以工作的类 | https://www.cnblogs.com/sunada2005/p/14651092.html
+  candidate 4: 读《设计模式之美》 · 语雀 | https://www.yuque.com/1ncounter/courtyard/ulkmgl?language=en-us
+  candidate 5: 欢迎使用CSDN-markdown编辑器 | https://blog.csdn.net/miao5014/article/details/44345685
+  ... 27 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:24] Structured reference | TOOL_OPEN#21 | no precise page mapping recovered in text output
+- [reference:25] Structured reference | TOOL_OPEN#9 | no precise page mapping recovered in text output
+- [reference:26] Structured reference | TOOL_OPEN#10 | no precise page mapping recovered in text output
+- [reference:27] Structured reference | TOOL_OPEN#19 | no precise page mapping recovered in text output
+- [reference:28] Exact page | Course Go SELF - Lecture: Antipatterns — interface‑pollution | https://javarush.com/en/quests/lectures/en.javarush.golang.core.lecture.level37.lecture04?post=full#discussion
+- [reference:29] Exact page | Code Smell 273 - Overengineering | https://dev.to/mcsee/code-smell-273-overengineering-2b0a
+- [reference:30] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=27
+  candidate 1: [BLUEJ-76] Object Inspector should show abstract state, not concrete state, of instances of ArrayList and other library classes (#76) · Issues · BlueJ / bjgf · GitLab | https://gitlab.bluej.org/bluej/bjgf/-/work_items/76#notes
+  candidate 2: 《代码整洁之道》：5大基本要点-华为开发者话题 | 华为开发者联盟 | https://developer.huawei.com/consumer/cn/forum/topic/0201183796718930198
+  candidate 3: 《架构整洁之道》第 11 章 DIP：依赖反转原则 | https://cloud.tencent.com.cn/developer/article/2291869
+  candidate 4: 【软件重构】【代码坏味道】详解滥用类的继承体系 | https://bbs.huaweicloud.com/blogs/378548
+  candidate 5: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:31] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=27
+  candidate 1: [BLUEJ-76] Object Inspector should show abstract state, not concrete state, of instances of ArrayList and other library classes (#76) · Issues · BlueJ / bjgf · GitLab | https://gitlab.bluej.org/bluej/bjgf/-/work_items/76#notes
+  candidate 2: 《代码整洁之道》：5大基本要点-华为开发者话题 | 华为开发者联盟 | https://developer.huawei.com/consumer/cn/forum/topic/0201183796718930198
+  candidate 3: 《架构整洁之道》第 11 章 DIP：依赖反转原则 | https://cloud.tencent.com.cn/developer/article/2291869
+  candidate 4: 【软件重构】【代码坏味道】详解滥用类的继承体系 | https://bbs.huaweicloud.com/blogs/378548
+  candidate 5: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  ... 22 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:32] Exact page | Revision 0ba1d629-b6c0-4c5c-a582-272b51d4e74a | https://codereview.stackexchange.com/revisions/0ba1d629-b6c0-4c5c-a582-272b51d4e74a/view-source
+- [reference:33] Search result set | query=code review interface abstraction level descriptor scale 0-5 | candidates=32
+  candidate 1: 【Go代码可维护性量化体系】：用5个AST衍生指标（Cyclomatic Complexity、Fan-out、Interface Coupling等）构建技术债看板 | https://datasea.cn/go0403575627.html
+  candidate 2: 包层次的软件质量度量指标 | https://my.oschina.net/sulliy/blog/261345#comments
+  candidate 3: 代码大全 - 第6章 可以工作的类 | https://www.cnblogs.com/sunada2005/p/14651092.html
+  candidate 4: 读《设计模式之美》 · 语雀 | https://www.yuque.com/1ncounter/courtyard/ulkmgl?language=en-us
+  candidate 5: 欢迎使用CSDN-markdown编辑器 | https://blog.csdn.net/miao5014/article/details/44345685
+  ... 27 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 0aa24a50-98a1-4a15-a373-30800048c4f4

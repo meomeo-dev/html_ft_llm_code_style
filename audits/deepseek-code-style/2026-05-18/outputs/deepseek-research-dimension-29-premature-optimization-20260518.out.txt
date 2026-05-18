@@ -1,0 +1,168 @@
+**回复ID: prematureOptimizationReview-20260518-001**
+
+---
+
+## 一、维度名称准确性判断
+
+**维度名称「过早优化抑制」基本准确**，但存在微小歧义。
+
+该名称的核心语义是"代码中不应出现过早的优化行为"，这与行业中"Premature Optimization is the root of all evil"（Donald Knuth 的名言）高度一致。公开资料将过早优化定义为"在缺乏性能测量或瓶颈识别的情况下，为了性能而将代码变复杂、从而牺牲可读性的行为"[reference:0]。该维度的描述内容——位运算技巧、循环展开、++i 替代 i++ 等——也正是行业公认的微优化代码异味（code smell）[reference:1][reference:2]。
+
+需要注意的是：名称中的"抑制"（Avoidance）暗示这是一个**被动的不作为**（"不要过早优化"），但 0-5 档的量表方向实际上是从"明显的过早优化"到"严格抑制后的理想状态"，即**可观察行为从"有"到"无"再到"有意识克制"的递进**。这种方向反转虽然在量表设计中常见，但在审视时需明确：量表测量的是"代码中过早优化痕迹的多少"，而非"开发者抑制过早优化的能力"。建议在维度说明中补充一句话明确该方向。
+
+> **判断依据**：以上判断基于公开资料中关于过早优化的定义（Knuth 名言、多个代码异味文章），其中名称匹配度的推断基于对描述内容的语义分析。
+
+---
+
+## 二、0-5 档单调递进性判断
+
+**整体递进性成立，但存在两处可疑边界，需要修正。**
+
+6 档描述形成了一条"优化程度从高到低"的视觉谱系：
+
+- **档位 0**：极端微优化——位运算、循环展开、内联汇编，变量名 x/t，无空白。这是肉眼可见的最强过早优化信号。
+- **档位 1**：代码密集但可读，偶见 `// faster way` 注释，存在 `++i` 替代 `i++` 的微优化。优化程度比档位 0 明显降低，但仍可见。
+- **档位 2**：格式清晰、留白充足，注释写 `// straightforward implementation`，无明显优化尝试。这是"中性档位"，代码正常可读。
+- **档位 3**：`profiling/` 目录存在，仅热点区域有注释如 `# hotspot identified by cProfile`。**⚠️ 第一处问题所在**：此处引入了一个项目结构层面的特征（目录存在），而非纯代码外观。
+- **档位 4**：优化前必须有 `# Benchmark: 2.3s -> 0.8s after change` 注释，每次优化配基准文件。**⚠️ 第二处问题所在**：要求了外部文件（基准文件），超出代码外观范围。
+- **档位 5**：文件头列出 `1. Correct 2. Clear 3. Optimize`，优化代码隔离在独立分支或功能开关后。**⚠️ 严重越界**：涉及分支策略和功能开关，属于架构治理层面。
+
+**递进性问题总结**：档位 2→3 之间，从"代码格式"突然跳变到"目录结构"，这是维度跳变而非单调递进。档位 4 和 5 进一步加入了外部文件、分支策略和功能开关，完全脱离了"代码长什么样"。
+
+> **判断依据**：单调性判断基于对 6 条描述的逻辑推演。其中 ++i/i++ 的差异被 Google C++ Style Guide 等资料认定为代码风格问题[reference:3]，`// faster way` 等注释形式来自对行业实践的推断。目录、分支、功能开关的边界判断基于对用户上下文中"代码长什么样"定义的严格解读。
+
+---
+
+## 三、跨维度 / 误导内容识别
+
+以下内容**偏离了"代码外观直接观察"这一核心要求**，属于跨维度或误导内容：
+
+### 3.1 `profiling/` 目录存在（档位 3）—— ❌ 跨维度
+
+`profiling/` 是一个目录结构特征，虽然可以观察到，但它反映的是**项目组织方式**而非代码风格。判断过早优化是否被抑制，关键是看代码注释中是否有 profiling 的引用痕迹（如 `# hotspot identified by cProfile`），而不应该把"目录是否存在"作为评分依据。一个项目完全可以没有 `profiling/` 目录但代码质量极高（使用外部工具 profiling），反之亦然。
+
+### 3.2 基准文件（档位 4）—— ❌ 跨维度
+
+"每次优化配基准文件"涉及的是**开发流程制度**（是否强制要求基准测试），而非代码外观。一个文件中是否出现了 `# Benchmark:` 注释是可以观察到的，但"每次配基准文件"是对流程的约束，无法从单次代码审查中验证。
+
+### 3.3 独立分支与功能开关（档位 5）—— ❌❌ 严重跨维度
+
+"优化代码隔离在独立分支或功能开关后"是**分支策略**和**架构治理**层面的内容。功能开关的核心定义是"在运行时控制行为，而不改变源码"[reference:4]。分支则涉及代码集成策略[reference:5]。这些与"代码长什么样"几乎无关——完全可能出现：代码外观满分（格式优雅、注释充分）但实际上分支策略一团糟的情况，反之亦然。将分支策略或功能开关纳入代码外观评分会造成严重的维度污染。
+
+公开资料也支持这一判断：过早优化的定义聚焦于"代码变复杂、可读性下降"[reference:6]，而非工程流程中的分支或开关机制。
+
+### 3.4 `// faster way` 注释（档位 1）—— ⚠️ 轻微可疑但可保留
+
+这种注释形式确实可以从代码中直接观察到，但需注意：它暗示开发者**知道自己在做优化并为此感到需要解释**，这在某些语境下反而是一种"自知自觉"的良好信号。不过，在量表语境中，它作为档位 1 的特征是合理的——比档位 0 好（至少还有注释），比档位 2 差（仍然在尝试优化）。
+
+---
+
+## 四、替代文案建议（6 条，纯代码外观可观察）
+
+以下 6 条替换文案均严格遵循"代码长什么样"的观察原则，不涉及真实性能、流程制度、分支策略、benchmark 成熟度或架构治理。
+
+| 档位 | 原文案问题 | 替代文案 | 可观察特征 |
+|------|-----------|---------|-----------|
+| **0** | ✅ 基本可保留 | **位运算技巧、循环展开、内联汇编的单行代码，变量名如 `x`、`t`，运算符间无空格** | 肉眼可见的极端微优化 |
+| **1** | 基本可保留，小修正 | **代码密集但勉强可读，偶见 `// faster way` 类性能解释注释，循环计数使用 `++i` 而非 `i++`** | 代码中有微优化痕迹且需注释解释 |
+| **2** | ✅ 可保留 | **格式清晰，留白充足，注释写 `// straightforward implementation` 或写明算法选择原因，无明显优化尝试** | 代码意图直接、可读性好 |
+| **3** | **替换**原档位 3 的 profiling 目录 | **热点函数/块上方有注释引用 profiling 来源，如 `# cProfile: 32% of runtime here`，其余代码无注释说明为何特殊** | profiling 注释可见但未扩散 |
+| **4** | **替换**原档位 4 的基准文件 | **每个优化块上方有完整注释记录：优化时间、变更前后数据对比，如 `# 2024-03: changed from O(n²) to O(n log n), 2.3s→0.8s`** | 优化注释内嵌在代码中，数据完整 |
+| **5** | **替换**原档位 5 的分支/功能开关 | **文件头或模块顶部 docstring 明确声明优化优先级原则，如 `"""Policy: 1. Correctness 2. Clarity 3. Performance. Optimize only after profiling."""`** | 代码文件自身声明了优化纪律 |
+
+### 替代原则说明
+
+1. **所有特征均可从源代码文本直接观察**——不需要读目录结构、不需要查看 git 分支、不需要检查 CI 配置。
+2. **递进方向统一为"优化痕迹从多到少再到有意识克制"**——档位 0-2 是优化痕迹递减，档位 3-5 是意识到优化需要"配注释 / 配数据 / 配原则声明"的递增克制。
+3. **不涉及基准文件的"存在性"要求**，而是要求优化注释"内嵌在代码中"——这才是 code review 时肉眼能看到的。
+4. **不涉及分支策略或功能开关**，因为这些属于架构治理维度，不应混入代码外观量表。
+
+---
+
+## 五、公开资料 vs 推断说明
+
+| 判断 / 建议 | 来源类型 | 说明 |
+|------------|---------|------|
+| 过早优化的定义（牺牲可读性、缺乏 profiling） | **公开资料** | Knuth 名言被广泛引用，多个代码异味文章（Code Smell 279、BitWise Optimizations 等）提供了具体定义[reference:7][reference:8] |
+| 位运算、循环展开属于过早优化代码异味 | **公开资料** | HackerNoon、Maximiliano Contieri 等人的文章明确将位运算优化归类为代码异味[reference:9] |
+| `++i` 与 `i++` 的差异是微优化 | **公开资料** | GCC 邮件列表、Google C++ Style Guide 均讨论过此问题，共识是对内置类型无性能差异，对迭代器类型可能有差异[reference:10] |
+| `// faster way` 等注释形式 | **推断** | 未找到完全匹配的公开标准，基于代码审查常见模式的推断 |
+| `1. Correct 2. Clear 3. Optimize` 原则 | **公开资料** | Microsoft Learn 等来源明确提出"先正确，后清晰，再优化"的原则[reference:11] |
+| `# hotspot identified by cProfile` 注释形式 | **推断** | 基于 cProfile 常见使用模式的推断，但"注释格式本身"的行业标准未找到明确文档 |
+| 0-5 档的具体排列和递进逻辑 | **推断** | 基于用户提供的 JSON 数据进行分析，档位划分方式是量表的固有设计 |
+| 替代文案中的注释格式和具体措辞 | **推断** | 基于对代码外观可观察性原则的严格演绎，结合行业最佳实践推断 |
+| profiling/ 目录、基准文件、分支策略属于跨维度 | **推断** | 基于对"代码长什么样"定义的严格边界分析，这些内容没有争议地超出代码外观范畴 |
+
+---
+
+## 总结
+
+- ✅ **维度名称**：基本准确，建议在说明中补充测量方向。
+- ⚠️ **单调递进性**：存在 3 处边界问题，档位 3/4/5 引入了非代码外观内容。
+- ❌ **跨维度内容**：`profiling/` 目录（项目结构）、基准文件（流程制度）、功能开关/独立分支（架构治理）均需移除。
+- ✅ **替代文案**：6 条均严格基于代码外观可观察原则设计，已在表格中给出。
+
+Citations:
+- [reference:0] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=40
+  candidate 1: ## 07｜性能优化别靠玄学：cProfile、火焰图与热点重写 | https://blog.csdn.net/zhaoyang4298/article/details/158931995
+  candidate 2: 2022-03-09 Project Proposal: Feature flags# | https://docs.openverse.org/_preview/3910/projects/proposals/feature_flags/20220309-project_proposal.html
+  candidate 3: 第27章-代码分析 | https://osgeo.cn/python101/chapter27_profiling.html
+  candidate 4: 过早优化：软件开发中的隐形杀手 | https://blog.csdn.net/qq_33060405/article/details/153795599
+  candidate 5: 用python做测试实现高性能测试工具(2)—优化代码 | http://www.51testing.com/mobile/view.php?itemid=856023
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Exact page | Code Smell 279 - Loop Premature Optimization | HackerNoon | https://hackernoon.com/lite/code-smell-279-loop-premature-optimization?ref=hackernoon
+- [reference:2] Exact page | Code Smell 180 - BitWise Optimizations | https://maximilianocontieri.com/code-smell-180-bitwise-optimizations
+- [reference:3] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=29
+  candidate 1: [Translation] Writing the best practices for code comments | https://www.programmersought.com/article/522610599153/
+  candidate 2: 📌 Code Smell 250 - Premature Memoization | https://tsecurity.de/de/2116097/IT+Programmierung/Code+Smell+250+-+Premature+Memoization/
+  candidate 3: 🔒 Code Smell 279 - Loop Premature Optimization | https://tsecurity.de/de/2445987/IT+Programmierung/Code+Smell+279+-+Loop+Premature+Optimization/de/201468/Videos/de/5/IT+Sicherheit/Cybersecurity+Nachrichten/
+  candidate 4: 问为什么++i比i++更高效？EN | https://cloud.tencent.com.cn/developer/ask/sof/104863829?from=16139
+  candidate 5: Clean Code and Code Smells | https://blogs.oregonstate.edu/philipseniorproject/2024/01/12/clean-code-and-code-smells/
+  ... 24 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=40
+  candidate 1: ## 07｜性能优化别靠玄学：cProfile、火焰图与热点重写 | https://blog.csdn.net/zhaoyang4298/article/details/158931995
+  candidate 2: 2022-03-09 Project Proposal: Feature flags# | https://docs.openverse.org/_preview/3910/projects/proposals/feature_flags/20220309-project_proposal.html
+  candidate 3: 第27章-代码分析 | https://osgeo.cn/python101/chapter27_profiling.html
+  candidate 4: 过早优化：软件开发中的隐形杀手 | https://blog.csdn.net/qq_33060405/article/details/153795599
+  candidate 5: 用python做测试实现高性能测试工具(2)—优化代码 | http://www.51testing.com/mobile/view.php?itemid=856023
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=40
+  candidate 1: ## 07｜性能优化别靠玄学：cProfile、火焰图与热点重写 | https://blog.csdn.net/zhaoyang4298/article/details/158931995
+  candidate 2: 2022-03-09 Project Proposal: Feature flags# | https://docs.openverse.org/_preview/3910/projects/proposals/feature_flags/20220309-project_proposal.html
+  candidate 3: 第27章-代码分析 | https://osgeo.cn/python101/chapter27_profiling.html
+  candidate 4: 过早优化：软件开发中的隐形杀手 | https://blog.csdn.net/qq_33060405/article/details/153795599
+  candidate 5: 用python做测试实现高性能测试工具(2)—优化代码 | http://www.51testing.com/mobile/view.php?itemid=856023
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=40
+  candidate 1: ## 07｜性能优化别靠玄学：cProfile、火焰图与热点重写 | https://blog.csdn.net/zhaoyang4298/article/details/158931995
+  candidate 2: 2022-03-09 Project Proposal: Feature flags# | https://docs.openverse.org/_preview/3910/projects/proposals/feature_flags/20220309-project_proposal.html
+  candidate 3: 第27章-代码分析 | https://osgeo.cn/python101/chapter27_profiling.html
+  candidate 4: 过早优化：软件开发中的隐形杀手 | https://blog.csdn.net/qq_33060405/article/details/153795599
+  candidate 5: 用python做测试实现高性能测试工具(2)—优化代码 | http://www.51testing.com/mobile/view.php?itemid=856023
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Exact page | Code Smell 279 - Loop Premature Optimization | HackerNoon | https://hackernoon.com/lite/code-smell-279-loop-premature-optimization?ref=hackernoon
+- [reference:8] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=40
+  candidate 1: ## 07｜性能优化别靠玄学：cProfile、火焰图与热点重写 | https://blog.csdn.net/zhaoyang4298/article/details/158931995
+  candidate 2: 2022-03-09 Project Proposal: Feature flags# | https://docs.openverse.org/_preview/3910/projects/proposals/feature_flags/20220309-project_proposal.html
+  candidate 3: 第27章-代码分析 | https://osgeo.cn/python101/chapter27_profiling.html
+  candidate 4: 过早优化：软件开发中的隐形杀手 | https://blog.csdn.net/qq_33060405/article/details/153795599
+  candidate 5: 用python做测试实现高性能测试工具(2)—优化代码 | http://www.51testing.com/mobile/view.php?itemid=856023
+  ... 35 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Exact page | Code Smell 180 - BitWise Optimizations | https://maximilianocontieri.com/code-smell-180-bitwise-optimizations
+- [reference:10] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=29
+  candidate 1: [Translation] Writing the best practices for code comments | https://www.programmersought.com/article/522610599153/
+  candidate 2: 📌 Code Smell 250 - Premature Memoization | https://tsecurity.de/de/2116097/IT+Programmierung/Code+Smell+250+-+Premature+Memoization/
+  candidate 3: 🔒 Code Smell 279 - Loop Premature Optimization | https://tsecurity.de/de/2445987/IT+Programmierung/Code+Smell+279+-+Loop+Premature+Optimization/de/201468/Videos/de/5/IT+Sicherheit/Cybersecurity+Nachrichten/
+  candidate 4: 问为什么++i比i++更高效？EN | https://cloud.tencent.com.cn/developer/ask/sof/104863829?from=16139
+  candidate 5: Clean Code and Code Smells | https://blogs.oregonstate.edu/philipseniorproject/2024/01/12/clean-code-and-code-smells/
+  ... 24 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query=profiling directory benchmark comment code hotspot premature optimization | candidates=29
+  candidate 1: [Translation] Writing the best practices for code comments | https://www.programmersought.com/article/522610599153/
+  candidate 2: 📌 Code Smell 250 - Premature Memoization | https://tsecurity.de/de/2116097/IT+Programmierung/Code+Smell+250+-+Premature+Memoization/
+  candidate 3: 🔒 Code Smell 279 - Loop Premature Optimization | https://tsecurity.de/de/2445987/IT+Programmierung/Code+Smell+279+-+Loop+Premature+Optimization/de/201468/Videos/de/5/IT+Sicherheit/Cybersecurity+Nachrichten/
+  candidate 4: 问为什么++i比i++更高效？EN | https://cloud.tencent.com.cn/developer/ask/sof/104863829?from=16139
+  candidate 5: Clean Code and Code Smells | https://blogs.oregonstate.edu/philipseniorproject/2024/01/12/clean-code-and-code-smells/
+  ... 24 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 8efd0892-9065-4c2a-b12b-dfb28815aabf

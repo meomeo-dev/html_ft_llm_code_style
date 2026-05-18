@@ -1,0 +1,222 @@
+回复ID: MemoryManagementCodeAppearance-20260518-001
+
+### 1. 维度名称评估
+
+**评估结论：** 维度名称“内存管理谨慎度 (Memory Management Care)”基本准确，能够概括该维度关注的核心——开发者是否在源码中表现出对内存使用的主动关注与审慎态度。该名称属于可观测的代码风格维度，未越界到实际内存安全或性能测量。
+
+### 2. 各级描述逐一审查
+
+**（1）0级：总体合格，存在微小表述偏误**
+
+> 原文：*模块级别分配大数组，全局变量持有大列表，无 del 或 null 赋值*
+
+- **代码外观可观测性：基本合格。** 模块级大数组、全局大列表、无 `del`/`= None` 赋值，均可通过浏览源代码文件直接判断。
+- **术语辨识——`del` 与 `= None`：** `del` 语句的作用是删除名称绑定、减少引用计数，而不是直接释放内存[reference:0]。Python 的 `del` 不删除对象本身[reference:1]。这意味着“无 del”作为0级标志是合理的（表示开发者连引用清理都没做），但审查者需注意不同语言的语义差异。
+- **信号词：** 模块级别大对象分配、**全局变量 (global variable)** 持有大列表、无 **显式引用解除 (explicit unbind)** 如 `del` 或 `= None`。
+
+**（2）1级：合格，信号明确**
+
+> 原文：*大对象使用后偶见 = None 赋值，长循环中有 # free memory 注释*
+
+- **代码外观可观测性：合格。** `= None` 赋值和 `# free memory` 注释都是肉眼可见的代码特征。
+- **信号词：** 大对象使用后偶见 `= None` 赋值、长循环中可见 **`# free memory` 注释 (comment)**。
+
+**（3）2级：合格，概念清晰**
+
+> 原文：*集合初始化包含大小提示：new ArrayList<>(1000), vec::with_capacity(1024)*
+
+- **代码外观可观测性：合格。** 构造函数或工厂方法中的容量参数是完全可见的代码特征。指定初始容量可避免动态扩容带来的重复分配与复制开销[reference:2]。
+- **信号词：** 集合初始化包含**容量提示 (capacity hint)**，如 `new ArrayList<>(1000)`、`vec::with_capacity(1024)`。
+
+**（4）3级：部分内容跨维度，需修改**
+
+> 原文：*WeakReference, WeakMap, @Cache(maxSize=100) 注解可见，函数上有 lru_cache*
+
+- **问题分析：** `WeakReference`、`WeakMap` 是可见的代码构造，直接体现开发者对“避免阻止GC回收”的关注，合格。`lru_cache` 装饰器用于函数结果缓存，以空间换时间，主要目标是性能优化[reference:3]。`@Cache(maxSize=100)` 注解是**缓存策略**，若出现在代码文件中确实可见，但更倾向于“性能缓存策略”维度而非内存管理本身。
+- **跨维度风险：** 缓存注解和 `lru_cache` 属于“缓存策略”或“性能优化”子维度，与“内存管理谨慎度”有交集但不等同。建议保留弱引用部分，将缓存注解替换为更直接的内存管理信号。
+- **信号词：** **弱引用 (WeakReference)**、`WeakMap` 类型可见，`lru_cache` 装饰器出现，**缓存边界 (cache boundary)** 注解如 `@Cache(maxSize=100)`。
+
+**（5）4级：核心内容跨维度（流程/工具配置），需重写**
+
+> 原文：*内存分析器导入如 memory_profiler 或 heaptrack，@profile 装饰器，.gitignore 中有 *.hprof*
+
+- **问题分析：**
+  - `import memory_profiler` 是可见的代码特征，合格。
+  - `@profile` 装饰器用于标记被分析函数，属于 profiling 工具链的一部分[reference:4]。
+  - `.gitignore` 中有 `*.hprof`——这是**项目配置/工程规范**，不是代码外观。heaptrack 是一款 Linux 堆内存分析器，其生成的 `.hprof` 文件被加入 `.gitignore` 表明项目使用了该工具，但 **.gitignore 不是源代码逻辑的一部分**[reference:5]。
+- **跨维度判定：** `.gitignore` 中的条目属于 CI/工程基础设施维度，不应出现在“代码长什么样”的量表中。
+- **信号词：** 内存分析器导入如 `memory_profiler`、`@profile` **装饰器 (decorator)** 可见、`.gitignore` 含 `*.hprof`（**项目配置 (project config)**，非代码外观）。
+
+**（6）5级：内容混杂——代码外观与CI管道混合，需重写**
+
+> 原文：*无 new 或 malloc 在工厂外出现，RAII 包装器遍布，CI 管道有 memcheck 阶段*
+
+- **问题分析：**
+  - “无 `new` 或 `malloc` 在工厂外出现”——良好的代码外观信号。`new` 和 `malloc` 的分布位置是直接可见的[reference:6]。
+  - “RAII 包装器遍布”——RAII 是通过构造函数获取资源、析构函数释放资源的惯用法[reference:7]。RAII 包装器（如智能指针、自定义资源管理类）在代码中可见，合格。
+  - “CI 管道有 memcheck 阶段”——CI 管道配置（如 `.github/workflows/memcheck.yml`、`valgrind --leak-check=full`）是**持续集成/工程流程**，不是代码本身[reference:8]。虽然 CI memcheck 反映了团队对内存管理的重视，但它不属于“代码外观”范畴。
+- **跨维度判定：** “CI 管道有 memcheck 阶段”需移除，替换为可在源代码中直接观察的信号。
+- **信号词：** `new`/`malloc` 仅出现在**工厂 (factory)** 内部、**RAII 包装器 (RAII wrapper)** 遍布、CI 管道含 **memcheck 阶段 (memcheck stage)**（非代码外观）。
+
+---
+
+### 3. 整体单调性评估
+
+**评估结论：** 0→5 档在同一视觉维度“内存管理谨慎度”上呈单调递进趋势——从0级“完全不关注”，到2级“有容量意识”，再到5级“严谨的资源包装与分配管控”。但3级（部分内容偏向缓存策略）、4级（混入 .gitignore 配置）和5级（混入 CI memcheck）的异质性内容打断了递进的纯粹性，建议修正后以维持视觉维度同质性。
+
+---
+
+### 4. 替代方案：6条基于代码外观的替代文案
+
+以下替代文案严格遵循“可直接从源代码阅读/浏览中观察”的原则，不涉及 CI 管道、工具配置、缓存策略、实际内存安全或性能。
+
+| 档位 | 替代文案 | 改写理由 |
+|------|---------|---------|
+| **0** | 模块级别直接分配大数组/大列表，无显式引用清理（如 `del`、`= None`、容器 `.clear()`），亦无容量提示 | 原文案基本合格，微调使表述更精确，补充 `.clear()` 作为另一种显式清理的可见信号 |
+| **1** | 大对象使用后偶见 `= None` 赋值或容器 `.clear()` 调用；长循环内可见开发者遗留的 `# free memory` 类注释 | 保留原文案核心，显式补充 `.clear()` 作为可观测清理行为 |
+| **2** | 集合初始化带有容量提示参数，如 `new ArrayList<>(1024)`、`HashMap.new(capacity)`、`vec::with_capacity(4096)` | 原文案合格，补充其他语言中常见的容量指定模式，增强多语言适用性 |
+| **3** | 代码中多处可见 `WeakReference`、`WeakMap` 类型，以及手动置空大型引用（如 `this.largeBuffer = null`） | 以代码中可见的弱引用类型和手动置空行为替代缓存注解；这些信号直接反映开发者对“不阻止GC/及时释放”的关注 |
+| **4** | 内存分析器模块被显式导入（如 `import memory_profiler`），代码中存在 `@profile` 装饰器标记热点函数；仓库中可见独立的内存压力测试脚本 | `import` 语句和 `@profile` 装饰器是代码中可见的，内存压力测试脚本文件也是代码仓库中的可见产物。删除了 `.gitignore` 条目 |
+| **5** | `new`/`malloc` 调用被严格限制在工厂类/工厂方法内部；RAII 包装器（智能指针、自定义资源句柄）在代码库中普遍使用；大对象的显式 `dispose()`/`close()` 模式随处可见 | 完全聚焦于源代码中的分配模式：`new`/`malloc` 的调用位置、RAII 包装器的分布、显式资源释放模式的可见性。删除了 CI memcheck 阶段 |
+
+---
+
+### 5. 信息来源说明
+
+- **基于公开资料（搜索与文档验证）的改写：**
+  - `del` 语句的语义：Python 官方行为——`del` 删除名称绑定而非释放内存[reference:9][reference:10]
+  - `ArrayList` 容量提示机制：指定初始容量可预分配内部数组，避免扩容开销[reference:11]
+  - `lru_cache` 的主要用途：基于 LRU 策略的函数结果缓存，属于性能优化范畴[reference:12]
+  - heaptrack 的工具定位：Linux 堆内存分析器，追踪分配事件并生成分析报告[reference:13]
+  - `new`/`malloc` 的分布建议：编码规范建议将显式分配限制在工厂/内部实现中[reference:14]
+  - RAII 惯用法：通过构造函数获取资源、析构函数释放资源[reference:15]
+  - CI memcheck 的典型配置：使用 Valgrind 在 CI 管道中进行内存泄漏检测[reference:16]
+
+- **基于推断的改写（未在公开资料中找到直接原文支撑）：**
+  - 将 `.gitignore` 中的 `*.hprof` 归类为“非代码外观”，是基于“项目配置文件不等于源代码”的逻辑推断，而非某一文献的直接陈述。
+  - 将 `@Cache(maxSize=100)` 注解判定为“缓存策略”与“内存管理谨慎度”之间的跨维度重叠，是基于量表设计维度的分析推断。
+  - 替代文案中使用 `.clear()`、`dispose()`、`this.largeBuffer = null` 等作为可观测信号的适用性，是基于常见编程实践与代码可读性原则的推断。
+
+Citations:
+- [reference:0] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:1] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:2] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=42
+  candidate 1: 【面试必备】透过源码角度一步一步带你分析 ArrayList 扩容机制 | https://www.ucloud.cn/yun/77187.html
+  candidate 2: `a=None`与`a=[]`的本质差异、`None`的单例内核，以及与其他语言`null`的底层区别 | https://www.cnblogs.com/wangya216/p/19205238#commentform
+  candidate 3: 04.ArrayList | https://juejin.cn/post/7082707021882982437
+  candidate 4: 闭包、柯里化、WeakMap：从前端到 V8 内存深渊的修炼 | https://juejin.cn/post/7530180321620099113
+  candidate 5: 如何利用 WeakRef 构建具备自动清理能力的 LRU 缓存以优化 GC 压力 | https://www.php.cn/faq/2326217.html
+  ... 37 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:3] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:4] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=42
+  candidate 1: 【面试必备】透过源码角度一步一步带你分析 ArrayList 扩容机制 | https://www.ucloud.cn/yun/77187.html
+  candidate 2: `a=None`与`a=[]`的本质差异、`None`的单例内核，以及与其他语言`null`的底层区别 | https://www.cnblogs.com/wangya216/p/19205238#commentform
+  candidate 3: 04.ArrayList | https://juejin.cn/post/7082707021882982437
+  candidate 4: 闭包、柯里化、WeakMap：从前端到 V8 内存深渊的修炼 | https://juejin.cn/post/7530180321620099113
+  candidate 5: 如何利用 WeakRef 构建具备自动清理能力的 LRU 缓存以优化 GC 压力 | https://www.php.cn/faq/2326217.html
+  ... 37 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:5] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:6] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:7] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:8] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=42
+  candidate 1: 【面试必备】透过源码角度一步一步带你分析 ArrayList 扩容机制 | https://www.ucloud.cn/yun/77187.html
+  candidate 2: `a=None`与`a=[]`的本质差异、`None`的单例内核，以及与其他语言`null`的底层区别 | https://www.cnblogs.com/wangya216/p/19205238#commentform
+  candidate 3: 04.ArrayList | https://juejin.cn/post/7082707021882982437
+  candidate 4: 闭包、柯里化、WeakMap：从前端到 V8 内存深渊的修炼 | https://juejin.cn/post/7530180321620099113
+  candidate 5: 如何利用 WeakRef 构建具备自动清理能力的 LRU 缓存以优化 GC 压力 | https://www.php.cn/faq/2326217.html
+  ... 37 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:9] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:10] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:11] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=42
+  candidate 1: 【面试必备】透过源码角度一步一步带你分析 ArrayList 扩容机制 | https://www.ucloud.cn/yun/77187.html
+  candidate 2: `a=None`与`a=[]`的本质差异、`None`的单例内核，以及与其他语言`null`的底层区别 | https://www.cnblogs.com/wangya216/p/19205238#commentform
+  candidate 3: 04.ArrayList | https://juejin.cn/post/7082707021882982437
+  candidate 4: 闭包、柯里化、WeakMap：从前端到 V8 内存深渊的修炼 | https://juejin.cn/post/7530180321620099113
+  candidate 5: 如何利用 WeakRef 构建具备自动清理能力的 LRU 缓存以优化 GC 压力 | https://www.php.cn/faq/2326217.html
+  ... 37 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:12] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:13] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:14] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:15] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=34
+  candidate 1: 51Testing软件测试论坛 | http://bbs.51testing.com/forum.php?mod=viewthread&action=printable&tid=1327451
+  candidate 2: 6 More Ways to Refactor new/delete into unique ptr | https://www.cppstories.com/2021/more-refactor-into-uniqueptr/
+  candidate 3: 持续集成：代码审查篇 | https://juejin.cn/post/6844903829255749640
+  candidate 4: 文件 · ecb55ab557d053150d23db12683c57b4ace5eba5 · SDK / Heaptrack · GitLab | https://invent.kde.org/sdk/heaptrack/-/tree/ecb55ab557d053150d23db12683c57b4ace5eba5
+  candidate 5: 问初始化‘`int *p=malloc(1000)；’也可以用RAII风格处理吗？EN | https://cloud.tencent.cn/developer/ask/sof/112770632?from=16139
+  ... 29 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- [reference:16] Search result set | query=Python memory management annotations @cache lru_cache code appearance | candidates=42
+  candidate 1: 【面试必备】透过源码角度一步一步带你分析 ArrayList 扩容机制 | https://www.ucloud.cn/yun/77187.html
+  candidate 2: `a=None`与`a=[]`的本质差异、`None`的单例内核，以及与其他语言`null`的底层区别 | https://www.cnblogs.com/wangya216/p/19205238#commentform
+  candidate 3: 04.ArrayList | https://juejin.cn/post/7082707021882982437
+  candidate 4: 闭包、柯里化、WeakMap：从前端到 V8 内存深渊的修炼 | https://juejin.cn/post/7530180321620099113
+  candidate 5: 如何利用 WeakRef 构建具备自动清理能力的 LRU 缓存以优化 GC 压力 | https://www.php.cn/faq/2326217.html
+  ... 37 more candidate sources omitted from text output; inspect markdown/json for the full set.
+- Note: `[reference:n]` backed by `TOOL_SEARCH` denotes a search result set, not a single verified webpage.
+
+sessionId: 438ae3b8-7e4c-4101-9fde-fe26b891f127

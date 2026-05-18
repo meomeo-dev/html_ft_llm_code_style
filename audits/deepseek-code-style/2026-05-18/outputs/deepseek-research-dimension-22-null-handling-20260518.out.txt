@@ -1,0 +1,233 @@
+**回复ID: NullHandlingVisualScale-20260518-001**
+
+## 第一步：维度名称评估
+
+**空值处理严格度 (Null / Undefined Handling Strictness)**——名称基本准确，关键词 **空值处理（Null Handling）** 和 **严格度（Strictness）** 能够指向本维度的核心关注点：空值检查的语法在屏幕上的**可见严格程度**。但“严格度”一词略微偏向语义/机制判断（编译器有多严格），建议微调为更偏视觉的表述。
+
+---
+
+## 第二步：0-5 档单调性与视觉可观察性分析
+
+### 第 0 档
+
+> 变量声明后直接访问属性或方法，没有任何前置检查，`.` 操作符前毫不设防
+
+**评估**：✅ 单调递增起点正确，**肉眼可观察**。代码中直接出现 `obj.prop` 而没有任何 `if`、`?.`、`Optional` 等防护结构，**视觉特征（Visual Signature）** 明确。
+
+### 第 1 档
+
+> 极少数函数入口处出现 `if null return` 式卫语句，方法体内其他位置则完全信任引用
+
+**评估**：✅ 单调递增，肉眼可观察。代码中出现稀疏的**卫语句（Guard Clause）** 如 `if (x == null) return;`，但内部逻辑链不受干扰。
+
+### 第 2 档
+
+> 代码中穿插着 `assert` 断言宏，它们集中在函数开头，像一堵矮墙象征性防护
+
+**评估**：⚠️ **问题档位**。`assert` 断言在视觉上确实可观察，但它与第 1 档的 `if null return` 在“视觉严格程度”上**难以形成清晰的递进关系**——两者都是“函数开头有几行检查代码”。此外，`assert` 在多数语言中**只在调试模式生效**，其“严格度”语义与视觉表现背离。
+
+### 第 3 档
+
+> 视觉特征转变为 Optional/Maybe 包装类型，链式调用中 `.map()` `.orElse()` 连绵成串
+
+**评估**：✅ 肉眼可观察。代码中出现 `Optional.ofNullable(x).map(...).orElse(...)` 这类**链式调用（Chained Calls）** 形态，**视觉密度**明显高于前两档。
+
+### 第 4 档
+
+> 代码中完全看不到 `null` 字面量，处处用空对象或初始值代替，类型注解上挂满 `NonNull` 标记
+
+**评估**：❌ **严重问题档位**。这一档将三个不同维度的视觉特征**混为一谈**：
+- **空对象模式（Null Object Pattern）**：`return EmptyUser.INSTANCE;`
+- **默认值/初始值**：`String name = "";`
+- **NonNull 注解（NonNull Annotation）**：`@NonNull String name`
+
+这三个特征在代码中的**视觉形态完全不同**，且“完全看不到 null 字面量”是一种**代码规范的后果**，而非肉眼可辨识的单一视觉特征。此外，空对象模式和 NonNull 注解在严格程度上**未必高于**第 3 档的 Optional 包装——它们是不同的策略，不是递进关系。
+
+### 第 5 档
+
+> 类型名称后强制跟随 `?` 表示可空，不带 `?` 的类型视觉上天然安全
+
+**评估**：❌ **严重问题档位**。这是 Kotlin / C# 8+ / TypeScript (strict) 等特定语言的**类型系统内置语法**。问题包括：
+
+1. **语言强依赖**：Java（无 `?` 类型后缀）、Go（无 nullable type 语法）、Python（无静态类型）完全无法适用此档。
+2. **与第 4 档不构成单调递进**：`?` 类型标记是语言层面的机制，NonNull 注解是库/框架层面的补充，两者在视觉严格程度上无法比较——带 `?` 的可空类型系统*天然*比 NonNull 注解更底层、更一致，但这不意味着它“更严格”。
+3. **视觉特征弱**：`?` 仅一个字符，从“代码外观”维度看，它的视觉冲击力远不如第 3 档的 `.map().orElse()` 链。
+
+---
+
+## 第三步：概念混淆诊断
+
+当前 0-5 档存在 **三种不同维度的概念被混入同一个量表**：
+
+| 概念维度 | 出现在档位 | 问题 |
+|---|---|---|
+| **运行时检查语法**（if-null、assert） | 第 0-2 档 | 属于同一子维度，递增尚可 |
+| **包装类型/单子风格**（Optional/Maybe） | 第 3 档 | 与运行时检查不同维度 |
+| **设计模式/架构约定**（空对象、默认值） | 第 4 档 | 与语法检查完全不同的范畴 |
+| **注解/元数据标记**（NonNull） | 第 4 档 | 视觉形态与语法不同 |
+| **类型系统语法**（`?` 后缀） | 第 5 档 | 语言层面机制，跨语言不可比 |
+
+**诊断结论**：当前量表不是一条单调的“光谱”，而是将 **语法检查 → 包装类型 → 设计模式 → 类型系统** 四个不同维度强行串成一条线。这违反了“视觉量表”的基本要求：每个档位应描述同一视觉维度上的**程度递进**，而非跳跃到不同的视觉语法范畴。
+
+---
+
+## 第四步：跨语言适用性评估
+
+- 第 0-1 档：几乎所有主流语言适用。
+- 第 2 档：依赖 `assert` 的语言（C/C++/Java/Python）适用，Go 等语言无内置 assert。
+- 第 3 档：Java (Optional)、Scala (Option)、Rust (Option)、Haskell (Maybe) 适用；Go、C 不适用。
+- 第 4 档：NonNull 注解主要适用于 Java；C# 8+ 有 `?` 语法后 NonNull 注解使用减少；动态语言无注解。
+- 第 5 档：仅 Kotlin、Swift、C# 8+、TypeScript (strict) 等**类型系统内置 nullable 语法**的语言适用。
+
+**结论**：当前量表在跨语言通用性上，第 3 档之后急剧下降，第 5 档几乎丧失通用性。
+
+---
+
+## 第五步：修改方案
+
+### 修改策略
+
+将量表统一到 **“肉眼可见的空值防护语法密度与形式”** 这一单一视觉维度上，剔除跨维度概念（空对象模式、NonNull 注解、类型系统 `?` 语法），确保：
+
+1. 每档描述的是**同一种视觉语言**（代码中出现的防护结构）。
+2. 0-5 档严格单调递增。
+3. 几乎所有主流语言都能找到对应档位。
+4. 读者看代码截图即可判断档位，无需了解语言机制。
+
+### 替代文案
+
+- **0**：代码中直接使用 `.` 访问属性或方法，变量声明后不经任何空值检查即参与运算，屏幕上完全看不到防护性代码
+- **1**：函数入口处零星出现 `if (x == null) return` 或 `if (x == nil) { return }` 卫语句，函数主体内部仍直接使用引用
+- **2**：几乎每个可能为空的引用前都有显式的 `if` 判空分支或提前返回，空值检查密度显著上升，`null`/`nil` 字面量频繁出现在条件表达式中
+- **3**：判空逻辑从 `if` 语句转变为 `?.` 安全调用操作符和 `??` / `?:` 空值合并运算符，屏幕上 `?` 和 `??` 符号密度明显增加，传统 `if-null` 逐渐消失
+- **4**：判空逻辑被推至边界——函数参数和返回值通过包装类型（Optional/Maybe/Option）传递，方法体内 `if-null` 和 `?.` 一并减少，取而代之的是 `.map()`、`.flatMap()`、`.orElse()` 链式调用
+- **5**：屏幕范围内几乎无法找到任何空值检查代码——要么语言本身禁止 null 或使用非空类型默认保证安全，要么空值语义完全由类型系统在编译期消化，运行时防护代码从视野中消失
+
+### 修改要点说明
+
+| 原档位问题 | 修改后的处理 |
+|---|---|
+| 第 2 档 `assert` 与第 1 档难以区分 | 改为“判空密度上升”，用 `if` 判空的覆盖范围区分 |
+| 第 3 档 Optional 链与第 2 档维度跳跃 | 插入新第 3 档（`?.` / `??` 运算符），将 Optional 链后移到第 4 档，形成平滑过渡 |
+| 第 4 档概念混杂（空对象+NonNull+默认值） | 移除，原位置由 Optional 链占据 |
+| 第 5 档语言强依赖 | 改为“空值检查代码从视野中消失”的视觉终态，适用于 Rust/Haskell/Kotlin 等任何通过类型系统消除运行时检查的语言 |
+
+---
+
+## 评估总结
+
+| 评估项 | 结论 |
+|---|---|
+| 名称准确性 | ✅ 基本准确，可微调 |
+| 0-5 单调递增 | ❌ 第 2→3 维度跳跃，第 4→5 不可比 |
+| 每档肉眼可观察 | ❌ 第 4 档特征混杂，第 5 档视觉弱 |
+| 概念混淆 | ❌ 严重，四个维度混为一表 |
+| 跨语言适用 | ❌ 第 3 档后急剧下降 |
+| **建议** | **替换为上述 6 条新文案** |
+
+Citations:
+- [citation] ? 操作符对于早期错误的处理 | https://rustwiki.org/zh-CN//edition-guide/rust-2018/error-handling-and-panics/the-question-mark-operator-for-easier-error-handling.html
+- [citation] [Haskell-cafe] There is no null; Maybe/Option types | https://mail.haskell.org/pipermail/haskell-cafe/2011-April/091269.html
+- [citation] 《深入理解Scala》——第2章，第2.4节用None不用null | https://developer.aliyun.com/article/90851
+- [citation] 《Optional：告别空指针的“优雅之道”与“使用陷阱”》 | https://developer.aliyun.com/article/1690767
+- [citation] 【精通函数式编程】(九) Optional实战大全 | https://bbs.huaweicloud.com/blogs/367487
+- [citation] @nnou/option - JSR | https://jsr.io/@nnou/option@1.2.0
+- [citation] / - @nnou/option - JSR | https://jsr.io:443/@nnou/option/1.0.0
+- [citation] /README.md - @nnou/option - JSR | https://jsr.io/@nnou/option/1.0.0/README.md
+- [citation] 被遗忘的设计模式——空对象模式（Null Object Pattern） | https://blog.csdn.net/ywb201314/article/details/52766487
+- [citation] 避免對可選鍊式操作進行非空斷言 | https://typescript-eslint.dev.org.tw/rules/no-non-null-asserted-optional-chain/
+- [citation] 别再滥用 None 了！这才是 Python 处理缺失值的好方法 | https://juejin.cn/post/7515391516787310626
+- [citation] 别再写 `obj!= null`：资深开发者如何通过设计消除空值检查 | https://developer.volcengine.com/articles/7609172063911985162
+- [citation] 别再只会 unwrap 了！Rust 错误处理：Option 和 Result 的使用总结 | https://zhuanlan.zhihu.com/p/668022700
+- [citation] 彻底吃透哨兵值：从底层逻辑到自定义设计（附原创值域理论） | https://dxiang.blog.csdn.net/article/details/160090077
+- [citation] 代码健壮性提升指南：深入浅出 TypeScript strictNullChecks | https://runebook.dev/zh/docs/typescript/docs/handbook/2/everyday-types/strictnullchecks-off
+- [citation] 第31章 新的设计模式（3） | https://blog.51cto.com/u_15127502/3722401
+- [citation] 泛型应用：Nullable / ?? / ?. | https://blog.csdn.net/xiongmaokuan/article/details/111595817
+- [citation] 高效使用 Java Optional：告别 NullPointerException | https://developer.aliyun.com/article/1693728
+- [citation] 告别丑陋判空，一个 Optional 类搞定 | https://cloud.tencent.cn/developer/article/2137650?from=15425
+- [citation] 告别繁琐判空：Optional让你的Java代码更优雅 | https://developer.aliyun.com/article/1684202
+- [citation] 告别空指针噩梦：Optional让Java代码更优雅 | https://developer.aliyun.com/article/1684204
+- [citation] 告别NullPointerException：拥抱Java Optional | https://developer.aliyun.com/article/1683588
+- [citation] 告别NullPointerException：Java Optional实战指南 | https://developer.aliyun.com/article/1684731
+- [citation] 关于@NotNull 和 @Nullable | https://cloud.tencent.cn/developer/article/2037362?from=15425
+- [citation] 函数式错误处理 | https://docs.scala-lang.org/zh-cn/scala3/book/fp-functional-error-handling.html
+- [citation] 京东云开发者｜深入JDK中的Optional | https://my.oschina.net/u/4090830/blog/5588873
+- [citation] 可选属性值可以为空吗？ - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E5%8F%AF%E9%80%89%E5%B1%9E%E6%80%A7%E5%80%BC%E5%8F%AF%E4%BB%A5%E4%B8%BA%E7%A9%BA%E5%90%97%EF%BC%9F
+- [citation] 空对象模式(Null Object Pattern)：告别 null 检查，用行为封装实现优雅编程 | https://cloud.tencent.com/developer/article/2643622
+- [citation] 空引用安全 | https://docs.cangjie-lang.cn/docs/0.53.18/white_paper/source_zh_cn/cj-wp-nullsafety.html
+- [citation] 每天认识一个设计模式-空对象模式：以无胜有的防御性编程艺术 | https://blog.csdn.net/qq_42263280/article/details/147188318
+- [citation] 如何安全链式调用避免空指针异常（Null Pointer Exception） | https://www.php.cn/faq/2062598.html
+- [citation] 如何优雅的解决空指针问题 | https://www.cnblogs.com/zoutairan/p/17306012.html
+- [citation] 如何在Rust中强制字符串不能为空？ - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E5%A6%82%E4%BD%95%E5%9C%A8Rust%E4%B8%AD%E5%BC%BA%E5%88%B6%E5%AD%97%E7%AC%A6%E4%B8%B2%E4%B8%8D%E8%83%BD%E4%B8%BA%E7%A9%BA%EF%BC%9F-article
+- [citation] 设计模式-空对象模式 | https://cloud.tencent.cn/developer/article/1700211?from=15425&frompage=seopage
+- [citation] 设计模式之美：Null Object（空对象） | https://developer.aliyun.com/article/354251
+- [citation] 深入理解 Rust Option 与 Result：零成本抽象的力量 | https://cloud.tencent.cn/developer/article/2620392?from=15425&frompage=seopage
+- [citation] 使用选项[List[Long]]时将空列表替换为无 | https://cloud.tencent.cn/developer/information/%E4%BD%BF%E7%94%A8%E9%80%89%E9%A1%B9%5BList%5BLong%5D%5D%E6%97%B6%E5%B0%86%E7%A9%BA%E5%88%97%E8%A1%A8%E6%9B%BF%E6%8D%A2%E4%B8%BA%E6%97%A0-video
+- [citation] 使用Optional来减少null检查 | https://cloud.tencent.cn/developer/article/1453043?from=15425&frompage=seopage
+- [citation] 使用optionals重写if else null检查 - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/%E4%BD%BF%E7%94%A8optionals%E9%87%8D%E5%86%99if%20else%20null%E6%A3%80%E6%9F%A5-article
+- [citation] 是时候跟你的空指针说再见了 | https://cloud.tencent.cn/developer/article/1509260?from=15425&frompage=seopage
+- [citation] 问访问属性的属性时，检查空值的正确方式是什么？EN | https://cloud.tencent.cn/developer/ask/sof/104204137?from=16139
+- [citation] 问选项(价值)与某些(价值)之间的差异EN | https://cloud.tencent.cn/developer/ask/sof/110794201?from=16139
+- [citation] 问在Java中使用Scala中的选项包装返回空值的方法？EN | https://cloud.tencent.com.cn/developer/ask/sof/103072602?from=16139
+- [citation] 小符号大作用-C# 可空类型 | https://blog.itpub.net/70041376/viewspace-3068091/
+- [citation] 演练场示例 - Nullable Types | https://www.typescriptlang.org/zh/play/typescript/type-primitives/nullable-types.ts.html
+- [citation] 映射nullish对象会产生typescript错误 | https://cloud.tencent.com/developer/information/%E6%98%A0%E5%B0%84nullish%E5%AF%B9%E8%B1%A1%E4%BC%9A%E4%BA%A7%E7%94%9Ftypescript%E9%94%99%E8%AF%AF-video
+- [citation] 用@NonNull注释Integer更好，还是使用原语int更好？ - 腾讯云开发者社区 | https://cloud.tencent.com/developer/information/%e7%94%a8@NonNull%e6%b3%a8%e9%87%8aInteger%e6%9b%b4%e5%a5%bd%ef%bc%8c%e8%bf%98%e6%98%af%e4%bd%bf%e7%94%a8%e5%8e%9f%e8%af%adint%e6%9b%b4%e5%a5%bd%ef%bc%9f
+- [citation] 用Optional后代码变清爽多了 | https://bbs.huaweicloud.com/blogs/442627
+- [citation] 掌握Rust中的Option::expect方法（新手必学的Rust错误处理技巧） | https://developer.aliyun.com/article/1697320
+- [citation] All symbols - @nnou/option - JSR | https://jsr.io:443/@nnou/option@1.0.2/doc
+- [citation] Better null checks, string formatting and path completion with JetBrains Annotations | The .NET Tools Blog | https://blog.jetbrains.com/dotnet/2018/05/04/better-null-checks-string-formatting-path-completion-jetbrains-annotations/?replytocom=570444
+- [citation] C# 可空类型 | https://zetcode.cn/csharp/nullable/
+- [citation] C# 学习笔记（10）—— 可空类型、匿名方法、迭代器 | https://cloud.tencent.cn/developer/article/2347878?from=15425&frompage=seopage
+- [citation] C# 中 ?、??、??=、?: 、?. 、?[] 各种问号的用法和说明 | https://bbs.huaweicloud.com/blogs/469196
+- [citation] C# 中的??、 ?、 ?: 、?.、?[ ] | https://www.cnblogs.com/cn-star/p/14699879.html
+- [citation] C#中?、?.、??、??=运算符怎么使用 | https://m.yisu.com/zixun/786585.html
+- [citation] Chapter 4. Making optionals second nature · Swift in Depth | https://livebook.manning.com/book/swift-in-depth/chapter-4/178
+- [citation] Code Smells: Null | The IntelliJ IDEA Blog | https://blog.jetbrains.com/idea/2017/08/code-smells-null/?utm_campaign=Feed%3a+jetbrains_intellijidea+%28JetBrains+IntelliJ+IDEA+Blog%29&utm_medium=feed&utm_source=feedburner
+- [citation] Coding Style Categories | github/swift-style-guide | DeepWiki | https://deepwiki.com/github/swift-style-guide/2-coding-style-categories
+- [citation] Course Kotlin SELF - Lecture: Tools for working with null: ?., ?:, !! | https://javarush.com/en/quests/lectures/en.javarush.kotlin.core.lecture.level11.lecture03?post=full#discussion
+- [citation] Enforce nullable type spacing | https://docs.datadoghq.com/security/code_security/static_analysis/static_analysis_rules/kotlin-code-style/nullable-type-spacing/
+- [citation] github/swift-style-guide | DeepWiki | https://deepwiki.com/github/swift-style-guide/1-swift-style-guide-overview
+- [citation] Inside Figma: a case study on strict null checks | Figma Blog | https://www.figma.com/blog/inside-figma-a-case-study-on-strict-null-checks/
+- [citation] Java Optional Class：优雅处理空值的利器 | https://javaguidepro.com/blog/java-optional-class/
+- [citation] Java Optional：如何简化Optional的链式调用 | https://www.yisu.com/jc/1035115.html
+- [citation] jcnavarrete/typescript-rules | https://www.continue.dev/jcnavarrete/typescript-rules
+- [citation] Kotlin Apprentice, Chapter 7: Nullability | https://www.kodeco.com/books/kotlin-apprentice/v2.0/chapters/7-nullability#toc-chapter-010-anchor-002
+- [citation] Linter 规则 | https://dart.ac.cn/tools/linter-rules
+- [citation] Linter rules | https://dart.dev/tools/linter-rules?trk=article-ssr-frontend-pulse_little-text-block
+- [citation] Lombok的@NonNull或javax @Nonnull - 腾讯云开发者社区 | https://cloud.tencent.cn/developer/information/Lombok%E7%9A%84%40NonNull%E6%88%96javax%20%40Nonnull-article
+- [citation] Master strictNullChecks in TypeScript: Guide & Migration | https://www.codefixeshub.com/typescript/configuring-strictnullchecks-in-typescript-a-pract
+- [citation] Module std::option | https://rustwiki.org/zh-CN//std/option/index.html#iterating-over-option
+- [citation] Non-null is the Default | https://developer.squareup.com/blog/non-null-is-the-default/
+- [citation] NotNull注解详解(原理、作用、@NotNul、@NotBlank、@NotEmpty的区别) | https://www.juhe.cn/news/index/id/8903
+- [citation] Null Safety in Kotlin - Scaler Topics | https://www.scaler.com/topics/kotlin/null-safety-in-kotlin/
+- [citation] Nullability in Java and Kotlin | Kotlin | https://kotlinlang.org/docs/java-to-kotlin-nullability-guide.html?_ga=2.45542756.1106359222.1661711792-1799444695.1661711792&_gl=1%2Abu5606%2A_ga%2AMTc5OTQ0NDY5NS4xNjYxNzExNzky%2A_ga_9J976DJZ68%2AMTY2MTcxMTc5MS4xLjEuMTY2MTcxMTg5OC4yOS4wLjA.
+- [citation] Nullable <T>混乱 - 腾讯云开发者社区 | https://cloud.tencent.com/developer/information/Nullable%20%3CT%3E%E6%B7%B7%E4%B9%B1
+- [citation] OpenCV-Rust 中 find_circles_grid 函数空指针问题的分析与解决 | https://blog.gitcode.com/2d2fd2a6b9ee99ddccc2f2ca1cd522cc.html
+- [citation] Option | https://www.scala-lang.org/api/current/scala/Option.html
+- [citation] option - @suddenly-giovanni/std - JSR | https://jsr.io/@suddenly-giovanni/std@0.0.6/doc/option
+- [citation] Option 和 unwrap | https://rustwiki.org/zh-CN/rust-by-example/error/option_unwrap.html
+- [citation] Optional 的高级用法：从避坑到优雅编程 | https://blog.csdn.net/iku_n/article/details/148878301
+- [citation] Percolating Nones in Scala | https://www.artima.com/weblogs/viewpostP.jsp?thread=267933
+- [citation] plasmaconduit/option | https://repo-ca-bhs-5.packagist.org/packages/plasmaconduit/option
+- [citation] python哨兵循环_Python中的Sentinel(哨兵)值 | https://blog.csdn.net/weixin_39588419/article/details/111749352
+- [citation] ReactiveX emit null or sentinel value after timeout | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/35873244/reactivex-emit-null-or-sentinel-value-after-timeout
+- [citation] Required: C#’s Answer to Java’s @NonNull (But Better) | https://levelup.gitconnected.com/required-c-s-answer-to-java-s-nonnull-but-better-59779e489475?gi=6bd832801495
+- [citation] Scala Options- Scaler Topics | https://www.scaler.com/topics/scala/scala-options/
+- [citation] scala-Option | https://blog.csdn.net/qq_34224565/article/details/104871183
+- [citation] Sentinel Language - Values | Sentinel | HashiCorp Developer | https://developer.hashicorp.com/sentinel/docs/v0.29.x/language/values
+- [citation] Sentinel Language - Variables | Sentinel | HashiCorp Developer | https://developer.hashicorp.com/sentinel/docs/v0.30.x/language/variables
+- [citation] Swift Style Guide for Kodeco: Writing Swift Code | Scrums.com | https://www.scrums.com/code-repository/swift-style-guide
+- [citation] Swift Style Guide: December 2014 Update | https://www.kodeco.com/2097-swift-style-guide-december-2014-update
+- [citation] swiftui 如何使用rgb color swift style | https://blog.51cto.com/u_14120/8160221
+- [citation] Syndetic Solutions - Table of Contents for ISBN Number 9781680502350 | http://syndetics.com/index.php?client=rit&isbn=9781680502350/toc.html
+- [citation] Thank you for the comment. But yes that is al... — DEV Community | https://dev.to/macsikora/comment/hgnd
+- [citation] The Null Awakens: Making Missing Data Harmless | https://dev.to/killallskywalker/the-null-awakens-making-missing-data-harmless-4fo6#comments
+- [citation] typescript - 从报错到精通：strictNullChecks 的常见问题与实战方案 | https://runebook.dev/zh/docs/typescript/tsconfig/strictNullChecks-config
+- [citation] TypeScript strictNullChecks与!!非空断言的终极对决 | https://my.oschina.net/emacs_7995017/blog/19398103
+- [citation] typescript/no-non-null-asserted-optional-chain | Oxlint | https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-non-null-asserted-optional-chain.html
+- [citation] Using `Option` Effectively: Avoiding Null the Rust Way | https://dev.to/sgchris/using-option-effectively-avoiding-null-the-rust-way-3p73
+- [citation] Variable Declarations and Optionals | github/swift-style-guide | DeepWiki | https://deepwiki.com/github/swift-style-guide/2.2-variable-declarations-and-optionals
+- [citation] Weblogs Forum - Percolating Nones in Scala | https://www.artima.com/forums/flat.jsp?forum=106&thread=267933&start=0#350971
+
+sessionId: b12567b3-892d-4700-9f16-bd44bc6defeb

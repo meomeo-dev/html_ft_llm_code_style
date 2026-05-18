@@ -1,0 +1,171 @@
+回复ID: mockingStyleReview-20260518-001
+
+## 审查结果
+
+**总评**：当前量表存在三个核心问题——（1）维度名称未能表达“肉眼可见代码外观”的意图；（2）0→1→2→3的递进方向与4→5之间出现了**概念断裂**：前四档描述mock框架使用度逐渐升高，而4→5突然从mock转向了fake/in-memory替身（手写测试替身），这是两条不同的代码风格轴线；（3）最高档描述了一个实际是「手写替身 / 经典TDD风格」的画面，却放在了名为“模拟与桩使用度”的量表顶端，会误导评定者。
+
+### 一、维度名称审查
+
+**名称**：模拟与桩使用度 (Mocking / Stubbing Usage)
+
+**问题分析**：
+
+当前量表标题使用 **“模拟与桩使用度”**，但其6条描述（尤其是高档位）实际覆盖的是 *Mock*、*Stub*、*Fake*、*Dummy* 等所有测试替身的 **存在形式与肉眼可见代码外观**，而非仅限“模拟与桩”。术语 *Test Double*（测试替身）是所有这些概念的统称。
+
+- **原名称的误导性**：名称中仅包含 Mock/Stub，但高档位描述开始涉及 Fake、InMemoryQueue 等非 Mock/Stub 的替身类型，容易让评定者误以为量表仅关注 mock/stub 框架使用频率。
+- **更精确的建议**：维度名称应反映“肉眼观察代码外观”的 **存在方式与视觉特征**，而非单独指向某一种替身类型。例如 *“测试替身的存在方式与视觉特征（Test Double Presence / Visual Appearance）”* 或更简洁的 *“测试替身外观（Test Double Appearance）”* 更贴近量表实际内容。
+
+**⚠️ 以上名称建议为推断建议**，基于对量表描述的解读；确认需结合团队实际使用场景。
+
+### 二、单调递进性分析
+
+当前6条描述的递进意图分析（按原顺序）：
+
+| 原档位 | 视觉特征摘要 | 问题 |
+|--------|------------|------|
+| 0 | 导入真实客户端/驱动，无 mock/stub/fake | ✅ 纯真实依赖 |
+| 1 | 少数 `@patch` 装饰器围绕外部 API | ✅ mock 框架轻度使用 |
+| 2 | `unittest.mock` 导入可见，`MagicMock()` 出现在 setup | ✅ mock 框架中度使用 |
+| 3 | 每个测试文件顶部有 `@mock.patch` 块，服务实例化传入 mock | ✅ mock 框架重度使用 |
+| 4 | 构造注入 + `spec=RealClass` + `verify(mock).method()` | ✅ mock 框架专业级使用 |
+| 5 | **unittest.mock 已被接口替换，导入 FakeRepository、InMemoryQueue，无 Mock() 调用** | ❌ **断裂点** |
+
+**关键断裂分析**：
+
+- 第4档的核心画面是 `verify(mock).method()`，这是典型的**行为验证（Behavior Verification）**——测试验证的是被测对象是否正确调用了 mock 对象的方法[reference:1]。行为验证是 mock 框架的核心使用模式[reference:2]。
+
+- 第5档的核心画面是 *FakeRepository*、*InMemoryQueue* ——这些是 **Fake 对象（Fake Object）**，即具有工作实现、但不适合生产的替身（如内存数据库）[reference:3][reference:4]。Fake 不依赖 mock 框架创建，不涉及行为验证，测试采用**状态验证（State Verification）**——即验证被测系统的最终状态而非调用行为[reference:5]。
+
+**问题本质**：量表在0→4递增的是“**mock 框架的可见使用程度**”，但第5档突然跳到了“**手写替身（Fake）替代 mock 框架**”。这是两条截然不同的代码风格轴线：
+
+| 风格 | 代表描述 | 视觉特征 |
+|------|---------|---------|
+| **Mockist（Mock 风格）** | 原0→4 | Mockito/`unittest.mock` 导入、`@Mock`/`@patch` 装饰器、`verify()` 调用 |
+| **Classic（经典风格）** | 原第5档 | 手写 Fake/Stub 类、无 mock 框架导入、状态断言 |
+
+将 Classic 风格放在 Mockist 风格递进的顶端，隐含了“Fake 替代 Mock 是更高级的 mock 使用”的错误逻辑——实际上这是**放弃 mock 框架、转向另一种测试策略**。
+
+**⚠️ 以上分析中，“第5档是Classic风格”的判断基于 Fowler 对 Classical vs Mockist TDD 的经典分类[reference:6]，“行为验证vs状态验证”的区分同样来自 Fowler 的公开定义**。
+
+### 三、跨维度 / 误导性内容排查
+
+**第5档的问题**：
+
+> *unittest.mock 已被接口替换，测试文件导入 FakeRepository、InMemoryQueue，无 Mock() 调用*
+
+此描述：
+
+1. **跨维度污染**：“unittest.mock 已被接口替换” 暗示了一种架构决策（面向接口编程、依赖反转），这不是“代码外观”，而是架构/设计维度。用户已在任务说明中明确指出：*“需要警惕把测试替身类型、测试质量、测试隔离性或架构优劣误并入‘模拟与桩使用度’”*。
+
+2. **包含价值判断**：“已被……替换”隐含了“使用接口 + Fake 比使用 mock 框架更好”的偏好判断，违反量表中立性原则。
+
+3. **无 Mock() 调用 = 并非 mock 使用的高点**：如果量表衡量的是“肉眼可见的 mock 使用度”，那么“无 Mock() 调用”的描述应为最低档而非最高档。这说明原量表在第5档已经**完全偏移到了另一条轴线**。
+
+4. **Fake 不一定是高档替代**：Fake 对象和 Mock 框架各有适用场景，互不构成高下。从创建成本看，Mock 框架只需一个注解/装饰器，而 Fake 需要编写完整实现类，两者只是风格差异。
+
+**⚠️ 以上分析基于 Meszaros 和 Fowler 的公开定义，以及 Mark Seemann 对 Test Double Continuum 的论述**。
+
+### 四、修改建议：6条替代描述
+
+以下替代描述严格遵循 **“肉眼可见的代码外观”** 原则，在同一视觉维度（mock 框架可见使用度）上单调递进，避免任何关于架构优劣、测试质量或技术偏好的内容。
+
+---
+
+**维度名称建议**：测试替身外观（Test Double Appearance）
+
+**0级** — **测试文件无任何测试替身导入**
+
+- **视觉特征**：测试文件仅导入被测试模块和标准库（如 `unittest`、`pytest`），无 `mock`、`MagicMock`、`patch`、`Fake*`、`Mock*`、`Stub*` 等替身相关导入或类定义。
+
+**1级** — **测试中可见单个 @patch 装饰器或少量 Mock() 调用**
+
+- **视觉特征**：测试方法/函数上方出现 1-2 个 `@patch` 或 `@mock.patch` 装饰器，或测试内部出现 1-2 个 `Mock()` / `MagicMock()` 赋值语句。替身仅用于覆盖外部 I/O 边界（如 HTTP 调用、第三方 SDK），其余依赖为真实对象。
+
+**2级** — **测试 setup/fixture 中包含多个 Mock 对象初始化**
+
+- **视觉特征**：测试类 `setUp` 方法或 pytest `@fixture` 中可见多个 `MagicMock()` / `Mock()` 赋值，如 `self.mock_db = MagicMock()`、`self.mock_logger = MagicMock()`。测试文件顶部可见 `from unittest.mock import MagicMock, patch` 导入。
+
+**3级** — **每个测试方法包含 @patch 装饰器链，被测对象通过 mock 参数构造**
+
+- **视觉特征**：多数测试函数签名包含 2+ 个 `@patch` 装饰器；服务实例化语句显示所有依赖由 mock 对象提供，如 `service = MyService(mock_repo, mock_logger, mock_email)`。
+
+**4级** — **测试中可见 verify / assert_called_with 等行为验证调用**
+
+- **视觉特征**：测试断言区域出现 `verify(mock_obj).method()`（Mockito 风格）或 `mock_obj.assert_called_with(...)` / `mock_obj.assert_called_once_with(...)`（Python 风格）等行为验证语句；mock 对象创建时可能附带 `spec=RealClass` 或 `autospec=True` 参数。
+
+**5级** — **测试文件中存在自定义 Fake/Stub 类定义，且 mock 框架导入与手写替身共存**
+
+- **视觉特征**：同一测试文件或测试目录中同时出现：
+  - `from unittest.mock import Mock, patch` 等 mock 框架导入
+  - 手写的 Fake/Stub 类定义（如 `class FakeUserRepository`、`class InMemoryQueue`），这些类实现接口或基类，包含 `dict`/`list` 等内存存储逻辑
+  - 测试中既使用 Mockito/`unittest.mock` 的 `verify()`/`assert_called_with()`，也使用 `FakeRepository()` 构造参数传入被测对象
+
+---
+
+**设计说明**：
+
+- 替代描述将原来的“mock 框架使用度递进”作为主轴（0→4），将 Fake 的出现定义为 **与 mock 框架共存** 的高复杂度画面（5级），而非“替代”mock 框架。
+- 每一条都可以通过扫描测试文件导入语句、装饰器、变量赋值、断言调用来直接判定，**无需理解测试质量、架构设计或运行速度**。
+- 第5级不再说“unittest.mock 已被接口替换”，而是描述一个 **混合风格的高复杂度测试场景**——这更符合实际项目中 mock 框架和手写替身共存的常见模式，也避免了价值判断。
+
+**⚠️ 替代描述为推断建议**：6条描述均为对“肉眼可见代码外观”的推演，基于 Meszaros 的 Test Double 分类体系和 Fowler 对 Mock/Stub 的经典区分[reference:10]。替代描述的有效性取决于团队对量表使用场景的具体定义，建议在实际评定流程中验证。
+
+### 五、建议来源声明
+
+| 建议内容 | 来源类型 |
+|---------|---------|
+| “mock 框架使用度”与“手写替身”是两条不同的视觉轴线 | **推断**（基于公开资料中 Mockist vs Classicist 的分类逻辑推导） |
+| 第5档的“已被接口替换”含架构偏好判断 | **推断**（基于量表中立性原则推导） |
+| 6条替代描述的视觉特征定义 | **推断**（基于公开 Test Double 分类体系推演为代码外观描述） |
+| Test Double 分类体系（Dummy / Stub / Spy / Mock / Fake） | **公开资料**（Meszaros xUnit Test Patterns、Fowler “Mocks Aren‘t Stubs”） |
+| 行为验证（Behavior Verification）vs 状态验证（State Verification） | **公开资料**（Fowler “Mocks Aren’t Stubs”） |
+| `unittest.mock` / Mockito `verify()` 的代码语法 | **公开资料**（Python 官方文档、Mockito 官方文档） |
+| Fake Repository 的代码模式（in-memory collection） | **公开资料**（多个技术教程与社区实践） |
+
+Citations:
+- [reference:0] Structured reference | TOOL_OPEN#8 | no precise page mapping recovered in text output
+- [reference:1] Exact page | "Mocks Aren't Stubs" • David Stutz | https://davidstutz.de/mocks-arent-stubs/
+- [reference:2] Exact page | 可测试性系列之测试替身Test Double | https://cloud.tencent.com.cn/developer/article/2017477?from=15425
+- [reference:3] Exact page | 可测试性系列之测试替身Test Double | https://cloud.tencent.com.cn/developer/article/2017477?from=15425
+- [reference:4] Exact page | Integrating Fakes in C++ Testing with Google Test and Google Mock for Test-Driven Development | https://codesignal.com/learn/courses/isolating-dependencies-with-test-doubles-with-google-mock/lessons/integrating-fakes-in-cpp-testing-with-google-test-and-google-mock-for-test-driven-development
+- [reference:5] Exact page | "Mocks Aren't Stubs" • David Stutz | https://davidstutz.de/mocks-arent-stubs/
+- [reference:6] Exact page | "Mocks Aren't Stubs" • David Stutz | https://davidstutz.de/mocks-arent-stubs/
+- [reference:7] Structured reference | TOOL_OPEN#8 | no precise page mapping recovered in text output
+- [reference:8] Structured reference | TOOL_OPEN#8 | no precise page mapping recovered in text output
+- [reference:9] Structured reference | TOOL_OPEN#8 | no precise page mapping recovered in text output
+- [reference:10] Exact page | "Mocks Aren't Stubs" • David Stutz | https://davidstutz.de/mocks-arent-stubs/
+- [citation] 🔒 what is the difference betwen mock and injectmocks and when do i use it? | https://tsecurity.de/de/2859516/IT+Programmierung/what+is+the+difference+betwen+mock+and+injectmocks+and+when+do+i+use+it%3F/de/155878/IT+Betriebssysteme/Linux+Tipps/
+- [citation] 10、测试替身：模拟对象、桩对象与测试间谍的使用与实践 | https://blog.csdn.net/spark7igniter/article/details/154764556
+- [citation] 26.8. unittest.mock — 入门 | https://python-documentation-cn.readthedocs.io/en/latest/library/unittest.mock-examples.html
+- [citation] 单元测试中体现的设计问题 | https://www.e-com-net.com/article/398535.htm
+- [citation] 如何利用Mockito模拟外部依赖对象实现业务逻辑的解耦 | https://www.php.cn/faq/2289004.html
+- [citation] Contents | https://javadoc.io/static/org.mockito/mockito-core/3.7.7/org/mockito/Mockito.html
+- [citation] Introduction to Fakes in TDD with Kotlin | https://codesignal.com/learn/courses/isolating-dependencies-using-junit-and-mockito/lessons/introduction-to-fakes-in-tdd-with-kotlin
+- [citation] Java Community News - Martin Fowler on Why Mocks Aren't Stubs | https://www.artima.com/forums/threaded.jsp?forum=276&thread=191790
+- [citation] Lesson 4: Creating Mock Objects Using Annotations - Baeldung Membership | https://www.baeldung.com/members/courses/learn-mockito/lessons/lesson-4-creating-mock-objects-using-annotations?utm_campaign=lss
+- [citation] Mock&Mockito使用手册 | https://blog.csdn.net/qq_31278903/article/details/127379423
+- [citation] Mockists Are Dead. Long Live Classicists. | https://www.thoughtworks.com/en-ca/insights/blog/mockists-are-dead-long-live-classicists
+- [citation] Mockito : how to verify method was called on an object created within a method? | https://www.w3docs.com/snippets/java/mockito-how-to-verify-method-was-called-on-an-object-created-within-a-method.html
+- [citation] Mockito测试框架中的方法详解 | https://www.e-com-net.com/article/1755517845208317952.htm
+- [citation] Mockito測試中Mock對象注入與方法驗證的常見陷阱與解決方案-java教程-PHP中文網 | https://global.php.cn/zh-tw/faq/1796890342.html
+- [citation] Mocks, fakes, dummies, stubs and spies: Successfully isolating the snake | https://ep2018.europython.eu/conference/talks/mocks-fakes-dummies-stubs-and-spies-successfully-isolating-the-snake
+- [citation] Mocks, Fakes, Stubs and Dummies | http://xunitpatterns.com/Mocks%2C%20Fakes%2C%20Stubs%20and%20Dummies.html
+- [citation] Over-testable systems, and mocks as bad test smells — Roy Osherove | https://osherove.com/blog/2008/7/3/over-testable-systems-and-mocks-as-bad-test-smells.html
+- [citation] Part 10: Testing and Refactoring | https://nhibernate.info/blog/2009/09/20/part-10-testing-and-refactoring.html
+- [citation] Presentation: Mock Roles Not Object States | https://www.infoq.com/news/2008/08/Mock-Roles-Pryce-and-Freeman/?topicPageSponsorship=a873a2ed-2522-46e0-85c3-fe232849e54d
+- [citation] Python 标准库 unittest 不同遮掩方式的比较 | https://www.cnblogs.com/JiangLe/p/19121923#commentform
+- [citation] taynock | https://cs.worcester.edu/author/taynock/page/3/
+- [citation] TDD anti-patterns | https://coderanch.com/t/751888/engineering/TDD-anti-patterns
+- [citation] Test Doubles | Developer Guide | Nightwatch.js | https://nightwatchjs.org/guide/writing-tests/test-doubles.html
+- [citation] Test Doubles and Mocking with NSubstitute | nowsprinting/UnityTestExamples | DeepWiki | https://deepwiki.com/nowsprinting/UnityTestExamples/6.2-test-doubles-and-mocking-with-nsubstitute
+- [citation] Test Doubles: Can You Tell a Fake From a Mock? | https://www.wwt.com/article/test-doubles-can-you-tell-fake-from-mock
+- [citation] test-quality-analysis - Agent Skill | https://agentskills.so/zh/skills/secondsky-claude-skills-test-quality-analysis
+- [citation] test-quality-analysis - Skill | https://smithery.ai/skills/laurigates/test-quality-analysis
+- [citation] Unit Testing with Mocks: Creating Mocks & Verifying Behavior - Software Testing - INTERMEDIATE - Skillsoft | https://www.skillsoft.com/course/unit-testing-with-mocks-creating-mocks-verifying-behavior-cb940315-aae7-4b59-9a19-28a3205e5c3c
+- [citation] unittest.mock — getting started — Python 3.10.20 | https://docs.python.org/pl/3.10/library/unittest.mock-examples.html#applying-the-same-patch-to-every-test-method
+- [citation] unittest.mock — primeiros passos¶ | https://docs.python.org/pt-br/3.9/library/unittest.mock-examples.html#checking-multiple-calls-with-mock
+- [citation] Use cases of various types of test doubles for unit testing | TechTarget | https://www.techtarget.com/searchsoftwarequality/tip/Use-cases-of-various-types-of-test-doubles-for-unit-testing
+- [citation] Week 10 – Page 10 – CS@Worcester | https://cs.worcester.edu/category/week-10/page/10/
+- [citation] When exactly mock objects are to be used during unit testing rathern than using stubs? | https://browse.library.kiwix.org/content/stackoverflow.com_en_all_2023-11/questions/1271582/when-exactly-mock-objects-are-to-be-used-during-unit-testing-rathern-than-usin
+
+sessionId: 7432211c-016d-431c-b334-aa157e3f7f9f
