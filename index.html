@@ -233,9 +233,20 @@
             color: var(--slider-thumb-bg);
         }
 
-        .preset-button.primary {
+        .preset-button.active {
             background-color: rgba(16,185,129,0.15);
             border-color: var(--slider-thumb-bg);
+            color: var(--slider-thumb-bg);
+        }
+        #presetStatus {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin: 0.4rem 0 0;
+            min-height: 1.1em;
+            transition: color 0.3s;
+        }
+        #presetStatus.flash {
             color: var(--slider-thumb-bg);
         }
 
@@ -264,12 +275,13 @@
 
         <div class="presets">
             <div class="preset-label">Presets</div>
-            <button class="preset-button primary" id="presetStrict">严格工程</button>
+            <button class="preset-button active" id="presetStrict">严格工程</button>
             <button class="preset-button" id="presetPragmatic">实用平衡</button>
             <button class="preset-button" id="presetPrototype">快速原型</button>
             <button class="preset-button" id="presetLibrary">开源库作者</button>
             <button class="preset-button" id="presetEnterprise">企业级</button>
         </div>
+        <div id="presetStatus">当前预设：严格工程</div>
 
         <div class="sliders-grid" id="sliders-grid"></div>
 
@@ -1229,6 +1241,24 @@
             setSliderValue(id, val);
         });
         updateYamlOutput();
+        updatePresetStatus(key);
+    }
+
+    function updatePresetStatus(key) {
+        // Update active button
+        document.querySelectorAll('.preset-button').forEach(btn => btn.classList.remove('active'));
+        const btnMap = { strict: 'presetStrict', pragmatic: 'presetPragmatic', prototype: 'presetPrototype', library: 'presetLibrary', enterprise: 'presetEnterprise' };
+        const activeBtn = document.getElementById(btnMap[key]);
+        if (activeBtn) activeBtn.classList.add('active');
+        // Update status text
+        const statusEl = document.getElementById('presetStatus');
+        if (statusEl) {
+            const name = presetDisplayNames[key] || key;
+            statusEl.textContent = '当前预设：' + name;
+            statusEl.classList.remove('flash');
+            void statusEl.offsetWidth;
+            statusEl.classList.add('flash');
+        }
     }
 
     // Init
