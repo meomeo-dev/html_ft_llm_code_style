@@ -364,15 +364,15 @@
 
         <div class="presets">
             <div class="preset-label">Presets</div>
-            <button class="preset-button active" id="presetStrict">格式很严</button>
-            <button class="preset-button" id="presetPragmatic">日常稳妥</button>
-            <button class="preset-button" id="presetPrototype">先跑起来</button>
-            <button class="preset-button" id="presetLibrary">给别人用</button>
-            <button class="preset-button" id="presetEnterprise">流程很重</button>
-            <button class="preset-button" id="presetMinimalist">写得很干净</button>
-            <button class="preset-button" id="presetLiterate">注释很足</button>
+            <button class="preset-button active" id="presetStrict">代码规范负责人</button>
+            <button class="preset-button" id="presetPragmatic">业务线主力</button>
+            <button class="preset-button" id="presetPrototype">赶 Demo 的同事</button>
+            <button class="preset-button" id="presetLibrary">公共库维护者</button>
+            <button class="preset-button" id="presetEnterprise">平台组老员工</button>
+            <button class="preset-button" id="presetMinimalist">重构老手</button>
+            <button class="preset-button" id="presetLiterate">技术文档作者</button>
         </div>
-        <div id="presetStatus">当前预设：格式很严</div>
+        <div id="presetStatus">当前预设：代码规范负责人</div>
 
         <div class="sliders-grid" id="sliders-grid"></div>
 
@@ -381,13 +381,13 @@
             <span id="copyMessage">已复制!</span>
             <span class="quick-preset-label">预设：</span>
             <span class="quick-presets">
-                <button class="quick-preset-btn" id="quickPresetStrict">格式很严</button>
-                <button class="quick-preset-btn" id="quickPresetPragmatic">日常稳妥</button>
-                <button class="quick-preset-btn" id="quickPresetPrototype">先跑起来</button>
-                <button class="quick-preset-btn" id="quickPresetLibrary">给别人用</button>
-                <button class="quick-preset-btn" id="quickPresetEnterprise">流程很重</button>
-                <button class="quick-preset-btn" id="quickPresetMinimalist">写得很干净</button>
-                <button class="quick-preset-btn" id="quickPresetLiterate">注释很足</button>
+                <button class="quick-preset-btn" id="quickPresetStrict">代码规范负责人</button>
+                <button class="quick-preset-btn" id="quickPresetPragmatic">业务线主力</button>
+                <button class="quick-preset-btn" id="quickPresetPrototype">赶 Demo 的同事</button>
+                <button class="quick-preset-btn" id="quickPresetLibrary">公共库维护者</button>
+                <button class="quick-preset-btn" id="quickPresetEnterprise">平台组老员工</button>
+                <button class="quick-preset-btn" id="quickPresetMinimalist">重构老手</button>
+                <button class="quick-preset-btn" id="quickPresetLiterate">技术文档作者</button>
             </span>
         </div>
 
@@ -1605,13 +1605,13 @@
 };
 
     const presetDisplayNames = {
-        strict: '格式很严（统一格式和顺序）',
-        pragmatic: '日常稳妥（团队默认写法）',
-        prototype: '先跑起来（快速验证想法）',
-        library: '给别人用（公开接口写法）',
-        enterprise: '流程很重（规程和标记多）',
-        minimalist: '写得很干净（短块少标记）',
-        literate: '注释很足（边写边说明）'
+        strict: '代码规范负责人（统一格式和顺序）',
+        pragmatic: '业务线主力（团队默认写法）',
+        prototype: '赶 Demo 的同事（快速验证想法）',
+        library: '公共库维护者（公开接口写法）',
+        enterprise: '平台组老员工（规程和标记多）',
+        minimalist: '重构老手（短块少标记）',
+        literate: '技术文档作者（边写边说明）'
     };
 
     function applyPreset(key) {
