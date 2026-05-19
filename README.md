@@ -1,35 +1,39 @@
-# AI 对话风格调优器
+# AI 代码风格调优器
 
-> 交互式滑块与预设，快速生成可落地的对话风格 YAML 提示词。
+交互式代码写法画像调节器，通过 50 个维度和 7 个预设生成可复制的
+代码风格提示词。
 
-- 在线预览（GitHub Pages）: https://meomeo-dev.github.io/html_ft_llm_voice_style/
+- 在线预览（GitHub Pages）: https://meomeo-dev.github.io/html_ft_llm_code_style/
+- 仓库地址: https://github.com/meomeo-dev/html_ft_llm_code_style
 
-## 预览
+## 功能
 
-![预览截图](./Screenshot.png)
+- 50 个代码写法维度：覆盖格式、命名、注释、结构、运行标记和测试写法。
+- 7 个预设画像：规约优先、实用平衡、快速原型、开源库作者、企业级、
+  极简派、说明型作者。
+- 实时生成提示词：滑块调整后立即输出连续文本提示词。
+- 本地可用：单个 `index.html` 即可离线打开。
 
-## 功能亮点
-- 40+ 细粒度维度：立场、结构、情感、指令、质量、安全、风格、认知、意图等分组可调。
-- 预设一键应用：专业极简、友好助理、学术审稿及多种 Persona。
-- 约束与联动：强负相关联动与结构/冗长度协同，避免冲突设置。
-- YAML 一键复制：生成结构化配置并带中文提示说明。
+## 使用
 
-## 快速使用
-- 在线打开: 直接访问 Pages 链接即可使用。
-- 本地打开: 克隆仓库后双击 `index.html` 即可在浏览器中离线使用。
+- 在线使用: 打开 Pages 链接。
+- 本地使用: 克隆仓库后直接打开 `index.html`。
 
 ```bash
-# 克隆
-git clone https://github.com/meomeo-dev/html_ft_llm_voice_style.git
-cd html_ft_llm_voice_style
-# 本地打开（macOS）
+git clone https://github.com/meomeo-dev/html_ft_llm_code_style.git
+cd html_ft_llm_code_style
 open index.html
 ```
 
 ## 部署
-本仓库已内置 GitHub Pages 工作流（`.github/workflows/pages.yml`）。
-- 将更改推送到 `main` 分支会自动触发部署。
-- 部署产物即仓库根目录的静态文件（`index.html` 等）。
+
+本仓库通过 GitHub Actions 发布到 GitHub Pages。
+
+- 推送到 `main` 分支会触发部署。
+- 部署产物只包含单页面 `index.html`。
+- 当前访问地址为
+  `https://meomeo-dev.github.io/html_ft_llm_code_style/`。
 
 ## 许可协议
-- 采用 MIT 协议
+
+MIT
